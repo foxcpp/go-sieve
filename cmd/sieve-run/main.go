@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/textproto"
 	"os"
@@ -65,11 +66,14 @@ func main() {
 	data.SMTP.To = *envTo
 
 	ctx := context.Background()
+	start = time.Now()
 	if err := loadedScript.Execute(ctx, data); err != nil {
 		log.Fatalln(err)
 	}
+	end = time.Now()
+	log.Println("script executed in", end.Sub(start))
 
-	log.Println("redirect:", data.RedirectAddr)
-	log.Println("fileinfo:", data.Mailboxes)
-	log.Println("keep:", data.ImplicitKeep || data.Keep)
+	fmt.Println("redirect:", data.RedirectAddr)
+	fmt.Println("fileinfo:", data.Mailboxes)
+	fmt.Println("keep:", data.ImplicitKeep || data.Keep)
 }
