@@ -11,6 +11,7 @@ import (
 
 type Options struct {
 	NoPosition bool
+	MaxTokens  int
 }
 
 func consumeCRLF(r *bufio.Reader, state *lexerState) error {
@@ -171,22 +172,21 @@ func tokenStream(r *bufio.Reader, opts *Options) ([]Token, error) {
 					return nil, err
 				}
 				res = append(res, String{Position: lineCol, Text: mlString})
+				continue
 			}
+			// if that's not text: but something else
+			fallthrough
 		default:
 			lineCol := state.Position
-			if err := r.UnreadByte(); err != nil {
-				return nil, err
-			}
-			state.Col--
 
 			if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') {
-				str, err := identifier(r, state)
+				str, err := identifier(r, string(b), state)
 				if err != nil {
 					return nil, err
 				}
 				res = append(res, Identifier{Position: lineCol, Text: str})
 			} else if b >= '0' && b <= '9' {
-				num, err := number(r, state)
+				num, err := number(r, string(b), state)
 				if err != nil {
 					return nil, err
 				}
@@ -196,12 +196,16 @@ func tokenStream(r *bufio.Reader, opts *Options) ([]Token, error) {
 				return nil, fmt.Errorf("unexpected character: %v", b)
 			}
 		}
+		if opts.MaxTokens != 0 && len(res) > opts.MaxTokens {
+			return nil, fmt.Errorf("too many tokens")
+		}
 	}
 	return res, nil
 }
 
-func identifier(r *bufio.Reader, state *lexerState) (string, error) {
+func identifier(r *bufio.Reader, startWith string, state *lexerState) (string, error) {
 	id := strings.Builder{}
+	id.WriteString(startWith)
 	for {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -224,8 +228,9 @@ func identifier(r *bufio.Reader, state *lexerState) (string, error) {
 	return id.String(), nil
 }
 
-func number(r *bufio.Reader, state *lexerState) (Number, error) {
+func number(r *bufio.Reader, startWith string, state *lexerState) (Number, error) {
 	num := strings.Builder{}
+	num.WriteString(startWith)
 	q := None
 readLoop:
 	for {

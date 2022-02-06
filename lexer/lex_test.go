@@ -7,25 +7,26 @@ import (
 )
 
 func testLexer(t *testing.T, script string, tokens []Token) {
-	t.Helper()
-	actualTokens, err := Lex(strings.NewReader(script), &Options{})
-	if err != nil {
-		if tokens == nil {
+	t.Run("case", func(t *testing.T) {
+		actualTokens, err := Lex(strings.NewReader(script), &Options{})
+		if err != nil {
+			if tokens == nil {
+				return
+			}
+			t.Error("Unexpected error:", err)
 			return
 		}
-		t.Error("Unexpected error:", err)
-		return
-	}
-	if tokens == nil {
-		t.Error("Unexpected success:", actualTokens)
-		return
-	}
-	if !reflect.DeepEqual(tokens, actualTokens) {
-		t.Log("Wrong lexer output:")
-		t.Logf("Actual:   %#v", actualTokens)
-		t.Logf("Expected: %#v", tokens)
-		t.Fail()
-	}
+		if tokens == nil {
+			t.Error("Unexpected success:", actualTokens)
+			return
+		}
+		if !reflect.DeepEqual(tokens, actualTokens) {
+			t.Log("Wrong lexer output:")
+			t.Logf("Actual:   %#v", actualTokens)
+			t.Logf("Expected: %#v", tokens)
+			t.Fail()
+		}
+	})
 }
 
 func TestLex(t *testing.T) {

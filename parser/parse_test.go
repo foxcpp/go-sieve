@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/foxcpp/go-sieve/lexer"
 )
 
@@ -50,12 +51,14 @@ const exampleScript = ` #
 `
 
 func testParse(t *testing.T, script string, cmds []Cmd) {
-	toks, err := lexer.Lex(strings.NewReader(script), &lexer.Options{})
+	toks, err := lexer.Lex(strings.NewReader(script), &lexer.Options{
+		NoPosition: true,
+	})
 	if err != nil {
 		t.Fatal("Lexer failed:", err)
 	}
 	s := lexer.NewStream(toks)
-	actualCmds, err := parse(s, 0)
+	actualCmds, err := parse(s, 0, &Options{})
 	if err != nil {
 		t.Error("parse failed:", err)
 		return
@@ -73,12 +76,112 @@ func testParse(t *testing.T, script string, cmds []Cmd) {
 	}
 	if !reflect.DeepEqual(cmds, actualCmds) {
 		t.Log("Wrong parse result")
-		t.Logf("Expected: %+v", cmds)
-		t.Logf("Actual:   %+v", actualCmds)
+		t.Log("Expected:")
+		t.Log(spew.Sdump(cmds))
+		t.Log("Actual:")
+		t.Log(spew.Sdump(actualCmds))
 		t.Fail()
 	}
 }
 
 func TestParser(t *testing.T) {
-	testParse(t, exampleScript, []Cmd{})
+	testParse(t, exampleScript, []Cmd{
+		{
+			Id: "require",
+			Args: []Arg{
+				StringListArg{Value: []string{"fileinto"}},
+			},
+		},
+		{
+			Id: "if",
+			Tests: []Test{
+				{
+					Id: "header",
+					Args: []Arg{
+						TagArg{Value: "is"},
+						StringArg{Value: "Sender"},
+						StringArg{Value: "owner-ietf-mta-filters@imc.org"},
+					},
+				},
+			},
+			Block: []Cmd{
+				{
+					Id: "fileinto",
+					Args: []Arg{
+						StringArg{Value: "filter"},
+					},
+				},
+			},
+		},
+		{
+			Id: "elsif",
+			Tests: []Test{
+				{
+					Id: "address",
+					Args: []Arg{
+						TagArg{Value: "DOMAIN"},
+						TagArg{Value: "is"},
+						StringListArg{Value: []string{"From", "To"}},
+						StringArg{Value: "example.com"},
+					},
+				},
+			},
+			Block: []Cmd{
+				{
+					Id: "keep",
+				},
+			},
+		},
+		{
+			Id: "elsif",
+			Tests: []Test{
+				{
+					Id: "anyof",
+					Tests: []Test{
+						{
+							Id: "NOT",
+							Tests: []Test{
+								{
+									Id: "address",
+									Args: []Arg{
+										TagArg{Value: "all"},
+										TagArg{Value: "contains"},
+										StringListArg{Value: []string{"To", "Cc", "Bcc"}},
+										StringArg{Value: "me@example.com"},
+									},
+								},
+							},
+						},
+						{
+							Id: "header",
+							Args: []Arg{
+								TagArg{Value: "matches"},
+								StringArg{Value: "subject"},
+								StringListArg{Value: []string{"*make*money*fast*", "*university*dipl*mas*"}},
+							},
+						},
+					},
+				},
+			},
+			Block: []Cmd{
+				{
+					Id: "fileinto",
+					Args: []Arg{
+						StringArg{Value: "spam"},
+					},
+				},
+			},
+		},
+		{
+			Id: "else",
+			Block: []Cmd{
+				{
+					Id: "fileinto",
+					Args: []Arg{
+						StringArg{Value: "personal"},
+					},
+				},
+			},
+		},
+	})
 }

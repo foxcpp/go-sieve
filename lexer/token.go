@@ -36,6 +36,21 @@ const (
 	Giga Quantifier = 'G'
 )
 
+func (q Quantifier) Multiplier() int {
+	switch q {
+	case None:
+		return 1
+	case Kilo:
+		return 1024
+	case Mega:
+		return 1024 * 1024
+	case Giga:
+		return 1024 * 1024 * 1024
+	default:
+		panic("unknown quantifier")
+	}
+}
+
 type Number struct {
 	Position
 	Value      int
@@ -93,8 +108,12 @@ type Colon struct{ Position }
 
 func (Colon) String() string { return "Colon()" }
 
+type position interface {
+	LineCol() (int, int)
+}
+
 type tokError struct {
-	t    Token
+	t    position
 	text string
 }
 
@@ -109,6 +128,6 @@ func (e tokError) Error() string {
 	return fmt.Sprintf("%d:%d: %s", line, col, e.text)
 }
 
-func TokenError(t Token, err string) error {
-	return tokError{t: t, text: err}
+func ErrorAt(t position, format string, args ...interface{}) error {
+	return tokError{t: t, text: fmt.Sprintf(format, args...)}
 }

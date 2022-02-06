@@ -37,7 +37,7 @@ func (s *Stream) Err(format string, args ...interface{}) error {
 	if last == nil {
 		return fmt.Errorf(format, args...)
 	}
-	return TokenError(last, fmt.Sprintf(format, args...))
+	return ErrorAt(last, format, args...)
 }
 
 func NewStream(toks []Token) *Stream {

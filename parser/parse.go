@@ -4,12 +4,19 @@ import (
 	"github.com/foxcpp/go-sieve/lexer"
 )
 
-const nestingLimit = 20
+type Options struct {
+	MaxBlockNesting int
+	MaxTestNesting  int
+}
+
+func Parse(stream *lexer.Stream, opts *Options) ([]Cmd, error) {
+	return parse(stream, 0, opts)
+}
 
 // parse is a low-level parsing function, it creates
 // AST with very little interpretation of values.
-func parse(stream *lexer.Stream, nesting int) ([]Cmd, error) {
-	if nesting > nestingLimit {
+func parse(stream *lexer.Stream, nesting int, opts *Options) ([]Cmd, error) {
+	if opts.MaxBlockNesting != 0 && nesting > opts.MaxBlockNesting {
 		return nil, stream.Err("block nesting limit exceeded")
 	}
 	res := []Cmd{}
@@ -22,14 +29,15 @@ func parse(stream *lexer.Stream, nesting int) ([]Cmd, error) {
 		}
 		switch id := idT.(type) {
 		case lexer.Identifier:
-			curCmd.Identifier = id.Text
+			curCmd.Id = id.Text
+			curCmd.Position = id.Position
 		case lexer.BlockEnd:
 			return res, nil
 		default:
 			return nil, stream.Err("reading command: expected an identifier or closing brace")
 		}
 
-		args, tests, err := readArguments(stream, false, 0)
+		args, tests, err := readArguments(stream, false, 0, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +52,7 @@ func parse(stream *lexer.Stream, nesting int) ([]Cmd, error) {
 		case lexer.Semicolon:
 			// Ok.
 		case lexer.BlockStart:
-			cmds, err := parse(stream, nesting+1)
+			cmds, err := parse(stream, nesting+1, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -64,8 +72,8 @@ func parse(stream *lexer.Stream, nesting int) ([]Cmd, error) {
 	}
 }
 
-func readArguments(s *lexer.Stream, forTest bool, nesting int) ([]Arg, []Test, error) {
-	if nesting > nestingLimit {
+func readArguments(s *lexer.Stream, forTest bool, nesting int, opts *Options) ([]Arg, []Test, error) {
+	if opts.MaxTestNesting != 0 && nesting > opts.MaxTestNesting {
 		return nil, nil, s.Err("reading arguments: nesting limit exceeded")
 	}
 	var args []Arg
@@ -86,17 +94,17 @@ func readArguments(s *lexer.Stream, forTest bool, nesting int) ([]Arg, []Test, e
 			return args, tests, nil
 		case lexer.String:
 			s.Pop()
-			args = append(args, StringArg(tok.Text))
+			args = append(args, StringArg{Value: tok.Text, Position: tok.Position})
 		case lexer.ListStart:
 			s.Pop()
 			list, err := readStringList(s)
 			if err != nil {
 				return nil, nil, err
 			}
-			args = append(args, StringListArg(list))
+			args = append(args, StringListArg{Value: list, Position: tok.Position})
 		case lexer.Number:
 			s.Pop()
-			args = append(args, NumberArg(tok.Value))
+			args = append(args, NumberArg{Value: tok.Value * tok.Quantifier.Multiplier(), Position: tok.Position})
 		case lexer.Colon:
 			s.Pop() // colon
 			idT := s.Pop()
@@ -107,14 +115,15 @@ func readArguments(s *lexer.Stream, forTest bool, nesting int) ([]Arg, []Test, e
 			if !ok {
 				return nil, nil, s.Err("reading arguments: expected identifier")
 			}
-			args = append(args, TagArg(id.Text))
+			args = append(args, TagArg{Value: id.Text, Position: tok.Position})
 		case lexer.Identifier:
 			// a single test, at the end of arguments.
 			s.Pop()
 			t := Test{
-				Id: tok.Text,
+				Position: tok.Position,
+				Id:       tok.Text,
 			}
-			tArgs, tTests, err := readArguments(s, true, nesting+1)
+			tArgs, tTests, err := readArguments(s, true, nesting+1, opts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -125,7 +134,7 @@ func readArguments(s *lexer.Stream, forTest bool, nesting int) ([]Arg, []Test, e
 		case lexer.TestListStart:
 			s.Pop()
 			var err error
-			tests, err = readTestList(s, nesting)
+			tests, err = readTestList(s, nesting, opts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -136,7 +145,7 @@ func readArguments(s *lexer.Stream, forTest bool, nesting int) ([]Arg, []Test, e
 	}
 }
 
-func readTestList(s *lexer.Stream, nesting int) ([]Test, error) {
+func readTestList(s *lexer.Stream, nesting int, opts *Options) ([]Test, error) {
 	needTest := true
 	res := []Test{}
 	for {
@@ -150,9 +159,10 @@ func readTestList(s *lexer.Stream, nesting int) ([]Test, error) {
 				return nil, s.Err("reading test list: expected comma or closing brace, got identifier")
 			}
 			t := Test{
-				Id: tok.Text,
+				Position: tok.Position,
+				Id:       tok.Text,
 			}
-			args, tests, err := readArguments(s, true, nesting+1)
+			args, tests, err := readArguments(s, true, nesting+1, opts)
 			if err != nil {
 				return nil, err
 			}
