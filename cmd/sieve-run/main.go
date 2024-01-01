@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/textproto"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/foxcpp/go-sieve"
@@ -76,4 +77,5 @@ func main() {
 	fmt.Println("redirect:", data.RedirectAddr)
 	fmt.Println("fileinfo:", data.Mailboxes)
 	fmt.Println("keep:", data.ImplicitKeep || data.Keep)
+	fmt.Printf("flags: %s\n", strings.Join(data.Flags, " "))
 }

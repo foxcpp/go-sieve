@@ -74,4 +74,29 @@ if envelope :is "from" "test@example.org" {
 			},
 		},
 	})
+	testCmdLoader(t, s, `require "imap4flags";
+require "fileinto";
+fileinto :flags "flag1 flag2" "hell";
+keep :flags ["flag1", "flag2"];
+setflag ["flag2", "flag1", "flag2"];
+addflag ["flag2", "flag1"];
+removeflag "flag2";
+`, []Cmd{
+		CmdFileInto{
+			Mailbox: "hell",
+			Flags:   &Flags{"flag1", "flag2"},
+		},
+		CmdKeep{
+			Flags: &Flags{"flag1", "flag2"},
+		},
+		CmdSetFlag{
+			Flags: &Flags{"flag1", "flag2"},
+		},
+		CmdAddFlag{
+			Flags: &Flags{"flag1", "flag2"},
+		},
+		CmdRemoveFlag{
+			Flags: &Flags{"flag2"},
+		},
+	})
 }

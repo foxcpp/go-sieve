@@ -22,8 +22,11 @@ type RuntimeData struct {
 
 	RedirectAddr []string
 	Mailboxes    []string
+	Flags        []string
 	Keep         bool
 	ImplicitKeep bool
+
+	FlagAliases map[string]string
 }
 
 func NewRuntimeData(s *Script, p Callback) *RuntimeData {
@@ -31,5 +34,6 @@ func NewRuntimeData(s *Script, p Callback) *RuntimeData {
 		Script:       s,
 		Callback:     p,
 		ImplicitKeep: true,
+		FlagAliases:  make(map[string]string),
 	}
 }

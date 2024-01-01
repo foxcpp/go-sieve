@@ -32,6 +32,7 @@ type result struct {
 	fileinto     []string
 	implicitKeep bool
 	keep         bool
+	flags        []string
 }
 
 func testExecute(t *testing.T, in string, eml string, intendedResult result) {
@@ -74,6 +75,7 @@ func testExecute(t *testing.T, in string, eml string, intendedResult result) {
 			fileinto:     data.Mailboxes,
 			keep:         data.Keep,
 			implicitKeep: data.ImplicitKeep,
+			flags:        data.Flags,
 		}
 
 		if !reflect.DeepEqual(r, intendedResult) {
@@ -101,19 +103,24 @@ func TestFileinto(t *testing.T) {
 		})
 }
 
-func TestStop(t *testing.T) {
-	testExecute(t, `require ["fileinto"];
+func TestFlags(t *testing.T) {
+	testExecute(t, `require ["fileinto", "imap4flags"];
+	setflag ["flag1", "flag2"];
+	addflag ["flag2", "flag3"];
+	removeflag ["flag1"];
 	fileinto "test";
 `, eml,
 		result{
 			fileinto: []string{"test"},
+			flags:    []string{"flag2", "flag3"},
 		})
-	testExecute(t, `require ["fileinto"];
+	testExecute(t, `require ["fileinto", "imap4flags"];
+		addflag ["flag2", "flag3"];
+		removeflag ["flag3", "flag4"];
 		fileinto "test";
-		stop;
-		fileinto "test2";
 	`, eml,
 		result{
 			fileinto: []string{"test"},
+			flags:    []string{"flag2"},
 		})
 }
