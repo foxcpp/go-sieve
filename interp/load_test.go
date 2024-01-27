@@ -48,7 +48,7 @@ func testCmdLoader(t *testing.T, s *Script, in string, out []Cmd) {
 
 func TestLoadBlock(t *testing.T) {
 	s := &Script{
-		extensions: supportedExtensions,
+		extensions: supportedRequires,
 	}
 	testCmdLoader(t, s, `require ["envelope"];`, []Cmd{})
 	testCmdLoader(t, s, `if true { }`, []Cmd{CmdIf{

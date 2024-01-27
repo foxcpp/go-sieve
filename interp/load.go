@@ -7,9 +7,15 @@ import (
 	"github.com/foxcpp/go-sieve/parser"
 )
 
-var supportedExtensions = map[string]struct{}{
-	"fileinto":   {},
-	"envelope":   {},
+var supportedRequires = map[string]struct{}{
+	"fileinto": {},
+	"envelope": {},
+
+	"comparator-i;octet":           {},
+	"comparator-i;ascii-casemap":   {},
+	"comparator-i;ascii-numeric":   {},
+	"comparator-i;unicode-casemap": {},
+
 	"imap4flags": {},
 }
 

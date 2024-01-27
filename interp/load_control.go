@@ -24,7 +24,7 @@ func loadRequire(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	}
 
 	for _, ext := range exts {
-		if _, ok := supportedExtensions[ext]; !ok {
+		if _, ok := supportedRequires[ext]; !ok {
 			return nil, fmt.Errorf("loadRequire: unsupported extension: %v", ext)
 		}
 		s.extensions[ext] = struct{}{}
