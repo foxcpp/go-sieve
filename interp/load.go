@@ -8,8 +8,9 @@ import (
 )
 
 var supportedExtensions = map[string]struct{}{
-	"fileinto": {},
-	"envelope": {},
+	"fileinto":   {},
+	"envelope":   {},
+	"imap4flags": {},
 }
 
 var (
@@ -32,6 +33,10 @@ func init() {
 		"redirect": loadRedirect,
 		"keep":     loadKeep,
 		"discard":  loadDiscard,
+		// RFC 5232 Actions
+		"setflag":    loadSetFlag,    // imap4flags extension
+		"addflag":    loadAddFlag,    // imap4flags extension
+		"removeflag": loadRemoveFlag, // imap4flags extension
 	}
 	tests = map[string]func(*Script, parser.Test) (Test, error){
 		// RFC 5228 Tests
