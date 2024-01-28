@@ -14,6 +14,7 @@ type (
 
 	PolicyReader = interp.PolicyReader
 	Message      = interp.Message
+	Envelope     = interp.Envelope
 
 	Options struct {
 		Lexer  lexer.Options
@@ -51,6 +52,6 @@ func Load(r io.Reader, opts Options) (*Script, error) {
 	return interp.LoadScript(cmds, &opts.Interp)
 }
 
-func NewRuntimeData(s *Script, p interp.PolicyReader, msg interp.Message) *interp.RuntimeData {
-	return interp.NewRuntimeData(s, p, msg)
+func NewRuntimeData(s *Script, p interp.PolicyReader, e interp.Envelope, msg interp.Message) *interp.RuntimeData {
+	return interp.NewRuntimeData(s, p, e, msg)
 }

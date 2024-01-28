@@ -3,6 +3,7 @@ package interp
 import (
 	"context"
 	"errors"
+	"testing"
 )
 
 type Cmd interface {
@@ -12,8 +13,9 @@ type Cmd interface {
 type Options struct {
 	MaxRedirects int
 
-	// Enable vnd.dovecot.testsuite extension. Use for testing only.
-	AllowDovecotTests bool
+	// If specified - enables vnd.dovecot.testsuite extension
+	// and will execute tests.
+	T *testing.T
 }
 
 type Script struct {

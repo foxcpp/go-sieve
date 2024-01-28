@@ -24,6 +24,14 @@ func loadRequire(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	}
 
 	for _, ext := range exts {
+		if ext == DovecotTestExtension {
+			if s.opts.T == nil {
+				return nil, fmt.Errorf("testing environment is not available, cannot use vnd.dovecot.testsuite")
+			}
+			s.extensions[DovecotTestExtension] = struct{}{}
+			continue
+		}
+
 		if _, ok := supportedRequires[ext]; !ok {
 			return nil, fmt.Errorf("loadRequire: unsupported extension: %v", ext)
 		}

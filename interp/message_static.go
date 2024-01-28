@@ -22,29 +22,33 @@ var (
 	_ MessageHeader = textproto.MIMEHeader{}
 )
 
+type EnvelopeStatic struct {
+	From string
+	To   string
+	Auth string
+}
+
+func (m EnvelopeStatic) EnvelopeFrom() string {
+	return m.From
+}
+
+func (m EnvelopeStatic) EnvelopeTo() string {
+	return m.To
+}
+
+func (m EnvelopeStatic) AuthUsername() string {
+	return m.Auth
+}
+
 // MessageStatic is a simple Message interface implementation
 // that just keeps all data in memory in a Go struct.
 type MessageStatic struct {
-	SMTPFrom string
-	SMTPTo   string
-	Size     int
-	Header   MessageHeader
+	Size   int
+	Header MessageHeader
 }
 
-func (m MessageStatic) EnvelopeFrom() string {
-	return m.SMTPFrom
-}
-
-func (m MessageStatic) EnvelopeTo() string {
-	return m.SMTPTo
-}
-
-func (m MessageStatic) HeaderGet(key string) (string, bool, error) {
-	values := m.Header.Values(key)
-	if len(values) == 0 {
-		return "", false, nil
-	}
-	return values[0], true, nil
+func (m MessageStatic) HeaderGet(key string) ([]string, error) {
+	return m.Header.Values(key), nil
 }
 
 func (m MessageStatic) MessageSize() int {

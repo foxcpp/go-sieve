@@ -50,12 +50,16 @@ func main() {
 	}
 	log.Println("script loaded in", end.Sub(start))
 
-	data := sieve.NewRuntimeData(loadedScript, nil, interp.MessageStatic{
-		SMTPFrom: *envFrom,
-		SMTPTo:   *envTo,
-		Size:     int(fileInfo.Size()),
-		Header:   msgHdr,
-	})
+	envData := interp.EnvelopeStatic{
+		From: *envFrom,
+		To:   *envTo,
+	}
+	msgData := interp.MessageStatic{
+		Size:   int(fileInfo.Size()),
+		Header: msgHdr,
+	}
+	data := sieve.NewRuntimeData(loadedScript, interp.DummyPolicy{},
+		envData, msgData)
 
 	ctx := context.Background()
 	start = time.Now()

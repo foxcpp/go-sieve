@@ -1,0 +1,3 @@
+[submodule "tests/pigeonhole"]
+	path = tests/pigeonhole
+	url = https://github.com/dovecot/pigeonhole.git

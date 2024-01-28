@@ -49,12 +49,16 @@ func testExecute(t *testing.T, in string, eml string, intendedResult result) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := interp.NewRuntimeData(loadedScript, nil, interp.MessageStatic{
-			SMTPFrom: "from@test.com",
-			SMTPTo:   "to@test.com",
-			Size:     len(eml),
-			Header:   msgHdr,
-		})
+		env := interp.EnvelopeStatic{
+			From: "from@test.com",
+			To:   "to@test.com",
+		}
+		msg := interp.MessageStatic{
+			Size:   len(eml),
+			Header: msgHdr,
+		}
+		data := interp.NewRuntimeData(loadedScript, interp.DummyPolicy{},
+			env, msg)
 
 		ctx := context.Background()
 		if err := loadedScript.Execute(ctx, data); err != nil {

@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 
 	"github.com/foxcpp/go-sieve/lexer"
@@ -43,6 +44,21 @@ func init() {
 		"setflag":    loadSetFlag,    // imap4flags extension
 		"addflag":    loadAddFlag,    // imap4flags extension
 		"removeflag": loadRemoveFlag, // imap4flags extension
+		// vnd.dovecot.testsuite
+		"test":             loadDovecotTest,
+		"test_set":         loadDovecotTestSet,
+		"test_fail":        loadDovecotTestFail,
+		"test_binary_load": loadNoop, // go-sieve has no intermediate binary representation
+		"test_binary_save": loadNoop, // go-sieve has no intermediate binary representation
+		// "test_result_execute" // apply script results (validated using test_message)
+		// "test_mailbox_create"
+		// "test_imap_metadata_set"
+		// "test_config_reload"
+		// "test_config_set"
+		// "test_config_unset"
+		// "test_result_reset"
+		// "test_message"
+
 	}
 	tests = map[string]func(*Script, parser.Test) (Test, error){
 		// RFC 5228 Tests
@@ -56,6 +72,13 @@ func init() {
 		"header":   loadHeaderTest,
 		"not":      loadNotTest,
 		"size":     loadSizeTest,
+		// vnd.dovecot.testsuite
+		"test_script_compile": loadDovecotCompile, // compile script (to test for compile errors)
+		"test_script_run":     loadDovecotRun,     // run script (to test for run-time errors)
+		"test_error":          loadDovecotError,   // check detailed results of test_script_compile or test_script_run
+		// "test_message" // check results of test_result_execute - where messages are
+		// "test_result_action" // check results of test_result_execute - what actions are executed
+		// "test_result_reset" // clean results as observed by test_result_action
 	}
 }
 
@@ -106,4 +129,14 @@ func LoadTest(s *Script, t parser.Test) (Test, error) {
 		return nil, lexer.ErrorAt(t, "LoadTest: unsupported test: %v", testName)
 	}
 	return factory(s, t)
+}
+
+type CmdNoop struct{}
+
+func (c CmdNoop) Execute(_ context.Context, _ *RuntimeData) error {
+	return nil
+}
+
+func loadNoop(_ *Script, _ parser.Cmd) (Cmd, error) {
+	return CmdNoop{}, nil
 }

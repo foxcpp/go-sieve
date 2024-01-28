@@ -36,26 +36,27 @@ func (a AddressTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 			continue
 		}
 
-		value, ok, err := d.Msg.HeaderGet(hdr)
+		values, err := d.Msg.HeaderGet(hdr)
 		if err != nil {
 			return false, err
 		}
-		if !ok {
-			continue
-		}
 
-		addrList, err := mail.ParseAddressList(value)
-		if err != nil {
-			return false, nil
-		}
+		// TODO: Reconsider how this works with field decoding
 
-		for _, k := range a.Key {
-			ok, err := testAddress(a.AddressPart, a.Comparator, a.Match, addrList, k)
+		for _, value := range values {
+			addrList, err := mail.ParseAddressList(value)
 			if err != nil {
-				return false, err
+				return false, nil
 			}
-			if ok {
-				return true, nil
+
+			for _, k := range a.Key {
+				ok, err := testAddress(a.AddressPart, a.Comparator, a.Match, addrList, k)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					return true, nil
+				}
 			}
 		}
 	}
@@ -110,9 +111,11 @@ func (e EnvelopeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 		var value string
 		switch strings.ToLower(field) {
 		case "from":
-			value = d.Msg.EnvelopeFrom()
+			value = d.Envelope.EnvelopeFrom()
 		case "to":
-			value = d.Msg.EnvelopeTo()
+			value = d.Envelope.EnvelopeTo()
+		case "auth":
+			value = d.Envelope.AuthUsername()
 		default:
 			return false, fmt.Errorf("envelope: unsupported envelope-part: %v", field)
 		}
@@ -138,11 +141,11 @@ type ExistsTest struct {
 
 func (e ExistsTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 	for _, field := range e.Fields {
-		_, ok, err := d.Msg.HeaderGet(field)
+		values, err := d.Msg.HeaderGet(field)
 		if err != nil {
 			return false, err
 		}
-		if !ok {
+		if len(values) == 0 {
 			return false, nil
 		}
 	}
@@ -171,21 +174,20 @@ type HeaderTest struct {
 
 func (h HeaderTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 	for _, hdr := range h.Header {
-		value, ok, err := d.Msg.HeaderGet(hdr)
+		values, err := d.Msg.HeaderGet(hdr)
 		if err != nil {
 			return false, err
 		}
-		if !ok {
-			continue
-		}
 
-		for _, k := range h.Key {
-			ok, err := testString(h.Comparator, h.Match, value, k)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				return true, nil
+		for _, value := range values {
+			for _, k := range h.Key {
+				ok, err := testString(h.Comparator, h.Match, value, k)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					return true, nil
+				}
 			}
 		}
 	}
