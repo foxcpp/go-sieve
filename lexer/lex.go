@@ -362,6 +362,7 @@ func multilineString(r *bufio.Reader, state *lexerState) (string, error) {
 				atLFHadDot = true
 			} else {
 				data.WriteByte('.')
+				atLFHadDot = false
 			}
 
 			atLF = false
@@ -381,6 +382,7 @@ func multilineString(r *bufio.Reader, state *lexerState) (string, error) {
 		default:
 			atLF = false
 			atLFHadDot = false
+			data.WriteByte(b)
 		}
 	}
 }

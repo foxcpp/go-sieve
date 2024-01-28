@@ -66,4 +66,38 @@ whatever # aaaa
 		Number{Value: 123, Quantifier: Kilo, Position: LineCol(7, 20)},
 		BlockEnd{Position: LineCol(7, 25)},
 	})
+	testLexer(t, `set "message" text:
+From: sirius@example.org
+To: nico@frop.example.com
+Subject: Frop!
+
+Frop!
+.
+`, []Token{
+		Identifier{Text: "set", Position: LineCol(1, 1)},
+		String{Text: "message", Position: LineCol(1, 5)},
+		String{Text: "From: sirius@example.org\r\n" +
+			"To: nico@frop.example.com\r\n" +
+			"Subject: Frop!\r\n" +
+			"\r\n" +
+			"Frop!\r\n", Position: LineCol(1, 15)},
+	})
+	testLexer(t, `set "message" text:
+From: sirius@example.org
+To: nico@frop.example.com
+Subject: Frop!
+
+..
+Frop!
+.
+`, []Token{
+		Identifier{Text: "set", Position: LineCol(1, 1)},
+		String{Text: "message", Position: LineCol(1, 5)},
+		String{Text: "From: sirius@example.org\r\n" +
+			"To: nico@frop.example.com\r\n" +
+			"Subject: Frop!\r\n" +
+			"\r\n" +
+			".\r\n" +
+			"Frop!\r\n", Position: LineCol(1, 15)},
+	})
 }
