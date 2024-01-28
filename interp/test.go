@@ -36,7 +36,7 @@ func (a AddressTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 			continue
 		}
 
-		value, ok, err := d.Callback.HeaderGet(hdr)
+		value, ok, err := d.Msg.HeaderGet(hdr)
 		if err != nil {
 			return false, err
 		}
@@ -110,9 +110,9 @@ func (e EnvelopeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 		var value string
 		switch strings.ToLower(field) {
 		case "from":
-			value = d.SMTP.From
+			value = d.Msg.EnvelopeFrom()
 		case "to":
-			value = d.SMTP.To
+			value = d.Msg.EnvelopeTo()
 		default:
 			return false, fmt.Errorf("envelope: unsupported envelope-part: %v", field)
 		}
@@ -138,7 +138,7 @@ type ExistsTest struct {
 
 func (e ExistsTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 	for _, field := range e.Fields {
-		_, ok, err := d.Callback.HeaderGet(field)
+		_, ok, err := d.Msg.HeaderGet(field)
 		if err != nil {
 			return false, err
 		}
@@ -171,7 +171,7 @@ type HeaderTest struct {
 
 func (h HeaderTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 	for _, hdr := range h.Header {
-		value, ok, err := d.Callback.HeaderGet(hdr)
+		value, ok, err := d.Msg.HeaderGet(hdr)
 		if err != nil {
 			return false, err
 		}
@@ -211,10 +211,10 @@ type SizeTest struct {
 }
 
 func (s SizeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
-	if s.Over && d.MessageSize > s.Size {
+	if s.Over && d.Msg.MessageSize() > s.Size {
 		return true, nil
 	}
-	if s.Under && d.MessageSize < s.Size {
+	if s.Under && d.Msg.MessageSize() < s.Size {
 		return true, nil
 	}
 	return false, nil

@@ -50,21 +50,12 @@ func main() {
 	}
 	log.Println("script loaded in", end.Sub(start))
 
-	data := interp.NewRuntimeData(loadedScript, interp.Callback{
-		RedirectAllowed: func(ctx context.Context, d *interp.RuntimeData, addr string) (bool, error) {
-			return true, nil
-		},
-		HeaderGet: func(key string) (string, bool, error) {
-			vals, ok := msgHdr[key]
-			if !ok {
-				return "", false, nil
-			}
-			return vals[0], true, nil
-		},
+	data := sieve.NewRuntimeData(loadedScript, nil, interp.MessageStatic{
+		SMTPFrom: *envFrom,
+		SMTPTo:   *envTo,
+		Size:     int(fileInfo.Size()),
+		Header:   msgHdr,
 	})
-	data.MessageSize = int(fileInfo.Size())
-	data.SMTP.From = *envFrom
-	data.SMTP.To = *envTo
 
 	ctx := context.Background()
 	start = time.Now()

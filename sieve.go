@@ -10,7 +10,10 @@ import (
 
 type (
 	Script      = interp.Script
-	RuntimeDate = interp.RuntimeData
+	RuntimeData = interp.RuntimeData
+
+	PolicyReader = interp.PolicyReader
+	Message      = interp.Message
 
 	Options struct {
 		Lexer  lexer.Options
@@ -46,4 +49,8 @@ func Load(r io.Reader, opts Options) (*Script, error) {
 	}
 
 	return interp.LoadScript(cmds, &opts.Interp)
+}
+
+func NewRuntimeData(s *Script, p interp.PolicyReader, msg interp.Message) *interp.RuntimeData {
+	return interp.NewRuntimeData(s, p, msg)
 }

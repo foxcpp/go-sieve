@@ -11,6 +11,9 @@ type Cmd interface {
 
 type Options struct {
 	MaxRedirects int
+
+	// Enable vnd.dovecot.testsuite extension. Use for testing only.
+	AllowDovecotTests bool
 }
 
 type Script struct {

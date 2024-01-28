@@ -49,21 +49,12 @@ func testExecute(t *testing.T, in string, eml string, intendedResult result) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := interp.NewRuntimeData(loadedScript, interp.Callback{
-			RedirectAllowed: func(ctx context.Context, d *interp.RuntimeData, addr string) (bool, error) {
-				return true, nil
-			},
-			HeaderGet: func(key string) (string, bool, error) {
-				vals, ok := msgHdr[key]
-				if !ok {
-					return "", false, nil
-				}
-				return vals[0], true, nil
-			},
+		data := interp.NewRuntimeData(loadedScript, nil, interp.MessageStatic{
+			SMTPFrom: "from@test.com",
+			SMTPTo:   "to@test.com",
+			Size:     len(eml),
+			Header:   msgHdr,
 		})
-		data.MessageSize = len(eml)
-		data.SMTP.From = "from@test.com"
-		data.SMTP.To = "to@test.com"
 
 		ctx := context.Background()
 		if err := loadedScript.Execute(ctx, data); err != nil {

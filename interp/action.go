@@ -39,14 +39,12 @@ type CmdRedirect struct {
 }
 
 func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
-	if d.Callback.RedirectAllowed != nil {
-		ok, err := d.Callback.RedirectAllowed(ctx, d, c.Addr)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
+	ok, err := d.Policy.RedirectAllowed(ctx, d, c.Addr)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 	d.RedirectAddr = append(d.RedirectAddr, c.Addr)
 	d.ImplicitKeep = false
