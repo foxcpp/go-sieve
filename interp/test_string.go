@@ -129,7 +129,7 @@ func testString(comparator Comparator, match Match, value, key string) (bool, []
 	return false, nil, nil
 }
 
-func testAddress(part AddressPart, comparator Comparator, match Match, headerVal []*mail.Address, addrValue string) (bool, []string, error) {
+func testAddress(d *RuntimeData, matcher matcherTest, part AddressPart, headerVal []*mail.Address) (bool, error) {
 	for _, addr := range headerVal {
 		if addr.Address == "<>" {
 			addr.Address = ""
@@ -155,13 +155,13 @@ func testAddress(part AddressPart, comparator Comparator, match Match, headerVal
 			}
 		}
 
-		ok, matches, err := testString(comparator, match, valueToCompare, addrValue)
+		ok, err := matcher.tryMatch(d, valueToCompare)
 		if err != nil {
-			return false, nil, err
+			return false, err
 		}
 		if ok {
-			return true, matches, nil
+			return true, nil
 		}
 	}
-	return false, nil, nil
+	return false, nil
 }

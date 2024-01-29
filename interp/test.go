@@ -13,12 +13,10 @@ type Test interface {
 }
 
 type AddressTest struct {
-	Comparator  Comparator
-	AddressPart AddressPart
-	Match       Match
+	matcherTest
 
-	Header []string
-	Key    []string
+	AddressPart AddressPart
+	Header      []string
 }
 
 var allowedAddrHeaders = map[string]struct{}{
@@ -79,17 +77,12 @@ func (a AddressTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 				return false, nil
 			}
 
-			for _, k := range a.Key {
-				ok, matches, err := testAddress(a.AddressPart, a.Comparator, a.Match, addrList, expandVars(d, k))
-				if err != nil {
-					return false, err
-				}
-				if ok {
-					if a.Match == MatchMatches {
-						d.MatchVariables = matches
-					}
-					return true, nil
-				}
+			ok, err := testAddress(d, a.matcherTest, a.AddressPart, addrList)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
 			}
 		}
 	}
@@ -131,12 +124,10 @@ func (a AnyOfTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 }
 
 type EnvelopeTest struct {
-	Comparator  Comparator
-	AddressPart AddressPart
-	Match       Match
+	matcherTest
 
-	Field []string
-	Key   []string
+	AddressPart AddressPart
+	Field       []string
 }
 
 func (e EnvelopeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
@@ -153,19 +144,14 @@ func (e EnvelopeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 			return false, fmt.Errorf("envelope: unsupported envelope-part: %v", field)
 		}
 
-		for _, k := range e.Key {
-			ok, matches, err := testAddress(e.AddressPart, e.Comparator, e.Match, []*mail.Address{
-				{Address: value},
-			}, expandVars(d, k))
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				if e.Match == MatchMatches {
-					d.MatchVariables = matches
-				}
-				return true, nil
-			}
+		ok, err := testAddress(d, e.matcherTest, e.AddressPart, []*mail.Address{
+			{Address: value},
+		})
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
 		}
 	}
 	return false, nil
@@ -201,11 +187,9 @@ func (t TrueTest) Check(context.Context, *RuntimeData) (bool, error) {
 }
 
 type HeaderTest struct {
-	Comparator Comparator
-	Match      Match
+	matcherTest
 
 	Header []string
-	Key    []string
 }
 
 func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
@@ -216,17 +200,12 @@ func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 		}
 
 		for _, value := range values {
-			for _, k := range h.Key {
-				ok, matches, err := testString(h.Comparator, h.Match, value, expandVars(d, k))
-				if err != nil {
-					return false, err
-				}
-				if ok {
-					if h.Match == MatchMatches {
-						d.MatchVariables = matches
-					}
-					return true, nil
-				}
+			ok, err := h.matcherTest.tryMatch(d, value)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
 			}
 		}
 	}

@@ -177,36 +177,10 @@ func loadStringTest(s *Script, test parser.Test) (Test, error) {
 	if !s.RequiresExtension("variables") {
 		return nil, fmt.Errorf("missing require 'variables'")
 	}
-	loaded := TestString{
-		Comparator: DefaultComparator,
-		Match:      MatchIs,
-	}
-	err := LoadSpec(s, &Spec{
-		Tags: map[string]SpecTag{
-			"comparator": {
-				NeedsValue:  true,
-				MinStrCount: 1,
-				MaxStrCount: 1,
-				MatchStr: func(val []string) {
-					loaded.Comparator = Comparator(val[0])
-				},
-			},
-			"is": {
-				MatchBool: func() {
-					loaded.Match = MatchIs
-				},
-			},
-			"contains": {
-				MatchBool: func() {
-					loaded.Match = MatchContains
-				},
-			},
-			"matches": {
-				MatchBool: func() {
-					loaded.Match = MatchMatches
-				},
-			},
-		},
+
+	loaded := TestString{matcherTest: newMatcherTest()}
+	var key []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
 		Pos: []SpecPosArg{
 			{
 				MatchStr: func(val []string) {
@@ -216,20 +190,19 @@ func loadStringTest(s *Script, test parser.Test) (Test, error) {
 			},
 			{
 				MatchStr: func(val []string) {
-					loaded.Key = val
+					key = val
 				},
 				MinStrCount: 1,
 			},
 		},
-	}, test.Position, test.Args, test.Tests, nil)
+	}), test.Position, test.Args, test.Tests, nil)
 	if err != nil {
 		return nil, err
 	}
-	switch loaded.Comparator {
-	case ComparatorOctet, ComparatorUnicodeCaseMap,
-		ComparatorASCIICaseMap, ComparatorASCIINumeric:
-	default:
-		return nil, fmt.Errorf("unsupported comparator: %v", loaded.Comparator)
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
 	}
+
 	return loaded, nil
 }

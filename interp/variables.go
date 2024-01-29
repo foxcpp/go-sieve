@@ -90,27 +90,21 @@ func (c CmdSet) Execute(_ context.Context, d *RuntimeData) error {
 }
 
 type TestString struct {
-	Source     []string
-	Key        []string
-	Comparator Comparator
-	Match      Match
+	matcherTest
+
+	Source []string
 }
 
 func (t TestString) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	for _, source := range t.Source {
 		source = expandVars(d, source)
-		for _, key := range t.Key {
-			key = expandVars(d, key)
-			ok, matches, err := testString(t.Comparator, t.Match, source, key)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				if t.Match == MatchMatches {
-					d.MatchVariables = matches
-				}
-				return true, nil
-			}
+
+		ok, err := t.matcherTest.tryMatch(d, source)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
 		}
 	}
 	return false, nil

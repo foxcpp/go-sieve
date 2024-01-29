@@ -8,35 +8,12 @@ import (
 
 func loadAddressTest(s *Script, test parser.Test) (Test, error) {
 	loaded := AddressTest{
-		Comparator:  DefaultComparator,
+		matcherTest: newMatcherTest(),
 		AddressPart: All,
-		Match:       MatchIs,
 	}
-	err := LoadSpec(s, &Spec{
+	var key []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
 		Tags: map[string]SpecTag{
-			"comparator": {
-				NeedsValue:  true,
-				MinStrCount: 1,
-				MaxStrCount: 1,
-				MatchStr: func(val []string) {
-					loaded.Comparator = Comparator(val[0])
-				},
-			},
-			"is": {
-				MatchBool: func() {
-					loaded.Match = MatchIs
-				},
-			},
-			"contains": {
-				MatchBool: func() {
-					loaded.Match = MatchContains
-				},
-			},
-			"matches": {
-				MatchBool: func() {
-					loaded.Match = MatchMatches
-				},
-			},
 			"all": {
 				MatchBool: func() {
 					loaded.AddressPart = All
@@ -62,19 +39,21 @@ func loadAddressTest(s *Script, test parser.Test) (Test, error) {
 			},
 			{
 				MatchStr: func(val []string) {
-					loaded.Key = val
+					key = val
 				},
 				MinStrCount: 1,
 			},
 		},
-	}, test.Position, test.Args, test.Tests, nil)
-	switch loaded.Comparator {
-	case ComparatorOctet, ComparatorUnicodeCaseMap,
-		ComparatorASCIICaseMap, ComparatorASCIINumeric:
-	default:
-		return nil, fmt.Errorf("unsupported comparator: %v", loaded.Comparator)
+	}), test.Position, test.Args, test.Tests, nil)
+	if err != nil {
+		return nil, err
 	}
-	return loaded, err
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
+	}
+
+	return loaded, nil
 }
 
 func loadAllOfTest(s *Script, test parser.Test) (Test, error) {
@@ -103,36 +82,14 @@ func loadEnvelopeTest(s *Script, test parser.Test) (Test, error) {
 	if !s.RequiresExtension("envelope") {
 		return nil, fmt.Errorf("missing require 'envelope'")
 	}
+
 	loaded := EnvelopeTest{
-		Comparator:  DefaultComparator,
+		matcherTest: newMatcherTest(),
 		AddressPart: All,
-		Match:       MatchIs,
 	}
-	err := LoadSpec(s, &Spec{
+	var key []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
 		Tags: map[string]SpecTag{
-			"comparator": {
-				NeedsValue:  true,
-				MinStrCount: 1,
-				MaxStrCount: 1,
-				MatchStr: func(val []string) {
-					loaded.Comparator = Comparator(val[0])
-				},
-			},
-			"is": {
-				MatchBool: func() {
-					loaded.Match = MatchIs
-				},
-			},
-			"contains": {
-				MatchBool: func() {
-					loaded.Match = MatchContains
-				},
-			},
-			"matches": {
-				MatchBool: func() {
-					loaded.Match = MatchMatches
-				},
-			},
 			"all": {
 				MatchBool: func() {
 					loaded.AddressPart = All
@@ -158,21 +115,20 @@ func loadEnvelopeTest(s *Script, test parser.Test) (Test, error) {
 			},
 			{
 				MatchStr: func(val []string) {
-					loaded.Key = val
+					key = val
 				},
 				MinStrCount: 1,
 			},
 		},
-	}, test.Position, test.Args, test.Tests, nil)
+	}), test.Position, test.Args, test.Tests, nil)
 	if err != nil {
 		return nil, err
 	}
-	switch loaded.Comparator {
-	case ComparatorOctet, ComparatorUnicodeCaseMap,
-		ComparatorASCIICaseMap, ComparatorASCIINumeric:
-	default:
-		return nil, fmt.Errorf("unsupported comparator: %v", loaded.Comparator)
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
 	}
+
 	return loaded, nil
 }
 
@@ -204,36 +160,9 @@ func loadTrueTest(s *Script, test parser.Test) (Test, error) {
 }
 
 func loadHeaderTest(s *Script, test parser.Test) (Test, error) {
-	loaded := HeaderTest{
-		Comparator: DefaultComparator,
-		Match:      MatchIs,
-	}
-	err := LoadSpec(s, &Spec{
-		Tags: map[string]SpecTag{
-			"comparator": {
-				NeedsValue:  true,
-				MinStrCount: 1,
-				MaxStrCount: 1,
-				MatchStr: func(val []string) {
-					loaded.Comparator = Comparator(val[0])
-				},
-			},
-			"is": {
-				MatchBool: func() {
-					loaded.Match = MatchIs
-				},
-			},
-			"contains": {
-				MatchBool: func() {
-					loaded.Match = MatchContains
-				},
-			},
-			"matches": {
-				MatchBool: func() {
-					loaded.Match = MatchMatches
-				},
-			},
-		},
+	loaded := HeaderTest{matcherTest: newMatcherTest()}
+	var key []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
 		Pos: []SpecPosArg{
 			{
 				MatchStr: func(val []string) {
@@ -243,21 +172,20 @@ func loadHeaderTest(s *Script, test parser.Test) (Test, error) {
 			},
 			{
 				MatchStr: func(val []string) {
-					loaded.Key = val
+					key = val
 				},
 				MinStrCount: 1,
 			},
 		},
-	}, test.Position, test.Args, test.Tests, nil)
+	}), test.Position, test.Args, test.Tests, nil)
 	if err != nil {
 		return nil, err
 	}
-	switch loaded.Comparator {
-	case ComparatorOctet, ComparatorUnicodeCaseMap,
-		ComparatorASCIICaseMap, ComparatorASCIINumeric:
-	default:
-		return nil, fmt.Errorf("unsupported comparator: %v", loaded.Comparator)
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
 	}
+
 	return loaded, nil
 }
 

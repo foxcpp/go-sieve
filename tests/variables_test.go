@@ -19,17 +19,7 @@ func TestExtensionsVariablesLimits(t *testing.T) {
 }
 
 func TestExtensionsVariablesMatch(t *testing.T) {
-	RunDovecotTestWithout(t, filepath.Join("pigeonhole", "tests", "extensions", "variables", "match.svtest"),
-		[]string{
-			// :matches is non-conforming - * is greedy but shouldn't be.
-			"RFC - non greedy",
-			"RFC - example",
-			"Words sep ?",
-			"Letters words *? - 1",
-			"Letters words *? - 2",
-			"Letters words *? backtrack",
-			"Letters words *? first",
-		})
+	RunDovecotTest(t, filepath.Join("pigeonhole", "tests", "extensions", "variables", "match.svtest"))
 }
 
 func TestExtensionsVariablesModifiers(t *testing.T) {
