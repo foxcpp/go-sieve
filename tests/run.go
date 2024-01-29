@@ -1,4 +1,4 @@
-package sieve
+package tests
 
 import (
 	"bytes"
@@ -7,19 +7,21 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/foxcpp/go-sieve"
 	"github.com/foxcpp/go-sieve/interp"
 )
 
-func RunDovecotTest(t *testing.T, path string) {
+func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string) {
 	svScript, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	opts := DefaultOptions()
+	opts := sieve.DefaultOptions()
 	opts.Interp.T = t
+	opts.Interp.DisabledTests = disabledTests
 
-	script, err := Load(bytes.NewReader(svScript), opts)
+	script, err := sieve.Load(bytes.NewReader(svScript), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +29,7 @@ func RunDovecotTest(t *testing.T, path string) {
 	ctx := context.Background()
 
 	// Empty data.
-	data := NewRuntimeData(script, interp.DummyPolicy{},
+	data := sieve.NewRuntimeData(script, interp.DummyPolicy{},
 		interp.EnvelopeStatic{}, interp.MessageStatic{})
 	data.Namespace = os.DirFS(filepath.Dir(path))
 
@@ -35,4 +37,8 @@ func RunDovecotTest(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func RunDovecotTest(t *testing.T, path string) {
+	RunDovecotTestWithout(t, path, nil)
 }

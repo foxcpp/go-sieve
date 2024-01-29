@@ -203,6 +203,29 @@ func tokenStream(r *bufio.Reader, opts *Options) ([]Token, error) {
 	return res, nil
 }
 
+func IsValidIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	first := s[0]
+	if !(first >= 'a' && first <= 'z') && !(first >= 'A' && first <= 'Z') {
+		return false
+	}
+
+	for _, chr := range s[1:] {
+		switch {
+		case chr >= 'a' && chr <= 'z':
+		case chr >= 'A' && chr <= 'Z':
+		case chr >= '0' && chr <= '9':
+		case chr == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func identifier(r *bufio.Reader, startWith string, state *lexerState) (string, error) {
 	id := strings.Builder{}
 	id.WriteString(startWith)
@@ -215,7 +238,8 @@ func identifier(r *bufio.Reader, startWith string, state *lexerState) (string, e
 			return "", err
 		}
 		state.Col++
-		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' {
+		//  identifier         = (ALPHA / "_") *(ALPHA / DIGIT / "_")
+		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' {
 			id.WriteByte(b)
 		} else {
 			if err := r.UnreadByte(); err != nil {
@@ -245,6 +269,9 @@ readLoop:
 		switch b {
 		case 'K', 'G', 'M':
 			q = Quantifier(b)
+			break readLoop
+		case 'k', 'g', 'm':
+			q = Quantifier(b - 32 /* to upper */)
 			break readLoop
 		}
 		if b >= '0' && b <= '9' {
@@ -380,6 +407,9 @@ func multilineString(r *bufio.Reader, state *lexerState) (string, error) {
 			data.WriteByte('\n')
 			atLF = true
 		default:
+			if atLFHadDot {
+				data.WriteByte('.')
+			}
 			atLF = false
 			atLFHadDot = false
 			data.WriteByte(b)

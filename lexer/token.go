@@ -1,10 +1,17 @@
 package lexer
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 type Position struct {
 	Line int
 	Col  int
+}
+
+func (l Position) String() string {
+	return strconv.Itoa(l.Line) + ":" + strconv.Itoa(l.Col)
 }
 
 func (l Position) LineCol() (int, int) {

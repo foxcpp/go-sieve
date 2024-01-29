@@ -100,4 +100,17 @@ Frop!
 			".\r\n" +
 			"Frop!\r\n", Position: LineCol(1, 15)},
 	})
+	testLexer(t, `set "text" text: # Comment
+Line 1
+.Line 2
+..Line 3
+.Line 4
+Line 5
+.
+;`, []Token{
+		Identifier{Text: "set", Position: LineCol(1, 1)},
+		String{Text: "text", Position: LineCol(1, 5)},
+		String{Text: "Line 1\r\n.Line 2\r\n.Line 3\r\n.Line 4\r\nLine 5\r\n", Position: LineCol(1, 12)},
+		Semicolon{Position: LineCol(8, 1)},
+	})
 }

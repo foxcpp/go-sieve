@@ -1,7 +1,6 @@
 package interp
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -10,7 +9,7 @@ import (
 
 type Flags []string
 
-func canonicalFlags(src []string, remove *Flags, aliases map[string]string) *Flags {
+func canonicalFlags(src []string, remove Flags, aliases map[string]string) Flags {
 	// This does four things
 	// * Translate space delimited lists of flags into separate flags
 	// * Handle flag aliases
@@ -29,7 +28,7 @@ func canonicalFlags(src []string, remove *Flags, aliases map[string]string) *Fla
 		}
 	}
 	if remove != nil {
-		for _, fl := range *remove {
+		for _, fl := range remove {
 			for _, f := range strings.Split(fl, " ") {
 				if fc, ok := aliases[f]; ok {
 					delete(fm, fc)
@@ -39,16 +38,16 @@ func canonicalFlags(src []string, remove *Flags, aliases map[string]string) *Fla
 			}
 		}
 	}
-	for f, _ := range fm {
+	for f := range fm {
 		c = append(c, f)
 	}
 	sort.Strings(c)
-	return &c
+	return c
 }
 
 func loadFileInto(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("fileinto") {
-		return nil, fmt.Errorf("require fileinto to use it")
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'fileinto")
 	}
 	cmd := CmdFileInto{}
 	err := LoadSpec(s, &Spec{
@@ -71,10 +70,15 @@ func loadFileInto(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	if !s.RequiresExtension("imap4flags") && cmd.Flags != nil {
-		return nil, fmt.Errorf("require imap4flags to use it")
+	if err != nil {
+		return nil, err
 	}
-	return cmd, err
+
+	if !s.RequiresExtension("imap4flags") && cmd.Flags != nil {
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
+	}
+
+	return cmd, nil
 }
 
 func loadRedirect(s *Script, pcmd parser.Cmd) (Cmd, error) {
@@ -90,7 +94,11 @@ func loadRedirect(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }
 
 func loadKeep(s *Script, pcmd parser.Cmd) (Cmd, error) {
@@ -106,10 +114,15 @@ func loadKeep(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	if !s.RequiresExtension("imap4flags") && cmd.Flags != nil {
-		return nil, fmt.Errorf("require imap4flags to use it")
+	if err != nil {
+		return nil, err
 	}
-	return cmd, err
+
+	if !s.RequiresExtension("imap4flags") && cmd.Flags != nil {
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
+	}
+
+	return cmd, nil
 }
 
 func loadDiscard(s *Script, pcmd parser.Cmd) (Cmd, error) {
@@ -120,7 +133,7 @@ func loadDiscard(s *Script, pcmd parser.Cmd) (Cmd, error) {
 
 func loadSetFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("imap4flags") {
-		return nil, fmt.Errorf("require impa4flags to use it")
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
 	}
 	cmd := CmdSetFlag{}
 	err := LoadSpec(s, &Spec{
@@ -133,12 +146,16 @@ func loadSetFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }
 
 func loadAddFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("imap4flags") {
-		return nil, fmt.Errorf("require impa4flags to use it")
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
 	}
 	cmd := CmdAddFlag{}
 	err := LoadSpec(s, &Spec{
@@ -151,12 +168,16 @@ func loadAddFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }
 
 func loadRemoveFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("imap4flags") {
-		return nil, fmt.Errorf("require impa4flags to use it")
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
 	}
 	cmd := CmdRemoveFlag{}
 	err := LoadSpec(s, &Spec{
@@ -169,5 +190,9 @@ func loadRemoveFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }

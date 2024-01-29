@@ -19,6 +19,7 @@ func loadDovecotTestSet(s *Script, pcmd parser.Cmd) (Cmd, error) {
 				MatchStr: func(val []string) {
 					cmd.VariableName = val[0]
 				},
+				NoVariables: true,
 			},
 			{
 				MinStrCount: 1,
@@ -29,7 +30,11 @@ func loadDovecotTestSet(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }
 
 func loadDovecotTestFail(s *Script, pcmd parser.Cmd) (Cmd, error) {
@@ -48,7 +53,16 @@ func loadDovecotTestFail(s *Script, pcmd parser.Cmd) (Cmd, error) {
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
-	return cmd, err
+	cmd.At = pcmd.Position
+	if err != nil {
+		return nil, err
+	}
+
+	if !usedVarsAreValid(s, cmd.Message) {
+		return nil, parser.ErrorAt(pcmd.Position, "invalid variable used: %v", cmd.Message)
+	}
+
+	return cmd, nil
 }
 
 func loadDovecotTest(s *Script, pcmd parser.Cmd) (Cmd, error) {
@@ -86,6 +100,54 @@ func loadDovecotCompile(s *Script, test parser.Test) (Test, error) {
 			},
 		},
 	}, test.Position, test.Args, test.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotConfigSet(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	loaded := CmdDovecotConfigSet{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Key = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+			{
+				MatchStr: func(val []string) {
+					loaded.Value = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+	return loaded, err
+}
+
+func loadDovecotConfigUnset(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	loaded := CmdDovecotConfigSet{
+		Unset: true,
+	}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Key = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+			{
+				MatchStr: func(val []string) {
+					loaded.Value = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
 	return loaded, err
 }
 

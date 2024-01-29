@@ -16,6 +16,9 @@ type SpecTag struct {
 	// Checks for used string list.
 	MinStrCount int
 	MaxStrCount int
+
+	// Toggle checks for valid variable names.
+	NoVariables bool
 }
 
 type SpecPosArg struct {
@@ -26,6 +29,9 @@ type SpecPosArg struct {
 	// Checks for used string list.
 	MinStrCount int
 	MaxStrCount int
+
+	// Toggle checks for valid variable names.
+	NoVariables bool
 }
 
 type Spec struct {
@@ -38,7 +44,7 @@ type Spec struct {
 	MultipleTests bool
 }
 
-func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, tests []parser.Test, block []parser.Cmd) error {
+func LoadSpec(s *Script, spec *Spec, position lexer.Position, args []parser.Arg, tests []parser.Test, block []parser.Cmd) error {
 	var lastTag *SpecTag
 	nextPosArg := 0
 	for _, a := range args {
@@ -48,7 +54,19 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 				if lastTag.MatchNum != nil {
 					return lexer.ErrorAt(a, "LoadSpec: tagged argument requires a number, got string-list")
 				} else if lastTag.MatchStr != nil {
-					lastTag.MatchStr([]string{a.Value})
+					value := a.Value
+					if s.RequiresExtension("encoded-character") {
+						var err error
+						value, err = decodeEncodedChars(value)
+						if err != nil {
+							return lexer.ErrorAt(position, "LoadSpec: malformed encoded character sequence: %v", err)
+						}
+					}
+					if s.RequiresExtension("variables") && !lastTag.NoVariables {
+
+					}
+
+					lastTag.MatchStr([]string{value})
 				} else {
 					panic("missing matcher for SpecTag")
 				}
@@ -65,7 +83,16 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 			if pos.MatchNum != nil {
 				return lexer.ErrorAt(a, "LoadSpec: argument requires a number, got string-list")
 			} else if pos.MatchStr != nil {
-				pos.MatchStr([]string{a.Value})
+				value := a.Value
+				if s.RequiresExtension("encoded-character") {
+					var err error
+					value, err = decodeEncodedChars(value)
+					if err != nil {
+						return lexer.ErrorAt(position, "LoadSpec: malformed encoded character sequence: %v", err)
+					}
+				}
+
+				pos.MatchStr([]string{value})
 			} else {
 				panic("no pos matcher")
 			}
@@ -78,7 +105,19 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 					if (lastTag.MinStrCount != 0 && len(a.Value) < lastTag.MinStrCount) || (lastTag.MaxStrCount != 0 && len(a.Value) > lastTag.MaxStrCount) {
 						return lexer.ErrorAt(a, "LoadSpec: wrong amount of string arguments")
 					}
-					lastTag.MatchStr(a.Value)
+
+					value := a.Value
+					if s.RequiresExtension("encoded-character") {
+						for i := range value {
+							var err error
+							value[i], err = decodeEncodedChars(value[i])
+							if err != nil {
+								return lexer.ErrorAt(position, "LoadSpec: malformed encoded character sequence: %v", err)
+							}
+						}
+					}
+
+					lastTag.MatchStr(value)
 				} else {
 					panic("missing matcher for SpecTag")
 				}
@@ -96,7 +135,18 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 			if pos.MatchNum != nil {
 				return lexer.ErrorAt(a, "LoadSpec: argument requires a number, got string-list")
 			} else if pos.MatchStr != nil {
-				pos.MatchStr(a.Value)
+				value := a.Value
+				if s.RequiresExtension("encoded-character") {
+					for i := range value {
+						var err error
+						value[i], err = decodeEncodedChars(value[i])
+						if err != nil {
+							return lexer.ErrorAt(position, "LoadSpec: malformed encoded character sequence: %v", err)
+						}
+					}
+				}
+
+				pos.MatchStr(value)
 			} else {
 				panic("no pos matcher")
 			}
@@ -143,20 +193,20 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 	}
 	for i := nextPosArg; i < len(spec.Pos); i++ {
 		if !spec.Pos[i].Optional {
-			return lexer.ErrorAt(pos, "LoadSpec: %d argument is required", i+1)
+			return lexer.ErrorAt(position, "LoadSpec: %d argument is required", i+1)
 		}
 	}
 
 	if spec.AddTest == nil {
 		if len(tests) != 0 {
-			return lexer.ErrorAt(pos, "LoadSpec: no tests allowed")
+			return lexer.ErrorAt(position, "LoadSpec: no tests allowed")
 		}
 	} else {
 		if len(tests) == 0 && !spec.TestOptional {
-			return lexer.ErrorAt(pos, "LoadSpec: at least one test required")
+			return lexer.ErrorAt(position, "LoadSpec: at least one test required")
 		}
 		if len(tests) > 1 && !spec.MultipleTests {
-			return lexer.ErrorAt(pos, "LoadSpec: only one test allowed")
+			return lexer.ErrorAt(position, "LoadSpec: only one test allowed")
 		}
 		for _, t := range tests {
 			loadedTest, err := LoadTest(s, t)
@@ -174,10 +224,10 @@ func LoadSpec(s *Script, spec *Spec, pos lexer.Position, args []parser.Arg, test
 			}
 			spec.AddBlock(loadedCmds)
 		} else if !spec.BlockOptional {
-			return lexer.ErrorAt(pos, "LoadSpec: block is required")
+			return lexer.ErrorAt(position, "LoadSpec: block is required")
 		}
 	} else if block != nil {
-		return lexer.ErrorAt(pos, "LoadSpec: no block allowed")
+		return lexer.ErrorAt(position, "LoadSpec: no block allowed")
 	}
 	return nil
 }

@@ -210,3 +210,7 @@ func readStringList(s *lexer.Stream) ([]string, error) {
 		}
 	}
 }
+
+func ErrorAt(pos lexer.Position, fmt string, args ...interface{}) error {
+	return lexer.ErrorAt(pos, fmt, args...)
+}

@@ -8,7 +8,7 @@ import (
 
 func loadAddressTest(s *Script, test parser.Test) (Test, error) {
 	loaded := AddressTest{
-		Comparator:  ComparatorOctet,
+		Comparator:  DefaultComparator,
 		AddressPart: All,
 		Match:       MatchIs,
 	}
@@ -101,10 +101,10 @@ func loadAnyOfTest(s *Script, test parser.Test) (Test, error) {
 
 func loadEnvelopeTest(s *Script, test parser.Test) (Test, error) {
 	if !s.RequiresExtension("envelope") {
-		return nil, fmt.Errorf("require envelope to use it")
+		return nil, fmt.Errorf("missing require 'envelope'")
 	}
 	loaded := EnvelopeTest{
-		Comparator:  ComparatorOctet,
+		Comparator:  DefaultComparator,
 		AddressPart: All,
 		Match:       MatchIs,
 	}
@@ -205,7 +205,7 @@ func loadTrueTest(s *Script, test parser.Test) (Test, error) {
 
 func loadHeaderTest(s *Script, test parser.Test) (Test, error) {
 	loaded := HeaderTest{
-		Comparator: ComparatorOctet,
+		Comparator: DefaultComparator,
 		Match:      MatchIs,
 	}
 	err := LoadSpec(s, &Spec{

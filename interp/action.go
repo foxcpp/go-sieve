@@ -7,29 +7,30 @@ import (
 
 type CmdStop struct{}
 
-func (c CmdStop) Execute(ctx context.Context, d *RuntimeData) error {
+func (c CmdStop) Execute(_ context.Context, _ *RuntimeData) error {
 	return ErrStop
 }
 
 type CmdFileInto struct {
 	Mailbox string
-	Flags   *Flags
+	Flags   Flags
 }
 
-func (c CmdFileInto) Execute(ctx context.Context, d *RuntimeData) error {
+func (c CmdFileInto) Execute(_ context.Context, d *RuntimeData) error {
+	mailbox := expandVars(d, c.Mailbox)
 	found := false
 	for _, m := range d.Mailboxes {
-		if m == c.Mailbox {
+		if m == mailbox {
 			found = true
 		}
 	}
 	if found {
 		return nil
 	}
-	d.Mailboxes = append(d.Mailboxes, c.Mailbox)
+	d.Mailboxes = append(d.Mailboxes, mailbox)
 	d.ImplicitKeep = false
 	if c.Flags != nil {
-		d.Flags = *canonicalFlags(make([]string, len(*c.Flags)), nil, d.FlagAliases)
+		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
 	}
 	return nil
 }
@@ -39,14 +40,16 @@ type CmdRedirect struct {
 }
 
 func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
-	ok, err := d.Policy.RedirectAllowed(ctx, d, c.Addr)
+	addr := expandVars(d, c.Addr)
+
+	ok, err := d.Policy.RedirectAllowed(ctx, d, addr)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return nil
 	}
-	d.RedirectAddr = append(d.RedirectAddr, c.Addr)
+	d.RedirectAddr = append(d.RedirectAddr, addr)
 	d.ImplicitKeep = false
 
 	if len(d.RedirectAddr) > d.Script.opts.MaxRedirects {
@@ -56,13 +59,13 @@ func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
 }
 
 type CmdKeep struct {
-	Flags *Flags
+	Flags Flags
 }
 
 func (c CmdKeep) Execute(_ context.Context, d *RuntimeData) error {
 	d.Keep = true
 	if c.Flags != nil {
-		d.Flags = *canonicalFlags(make([]string, len(*c.Flags)), nil, d.FlagAliases)
+		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
 	}
 	return nil
 }
@@ -76,41 +79,43 @@ func (c CmdDiscard) Execute(_ context.Context, d *RuntimeData) error {
 }
 
 type CmdSetFlag struct {
-	Flags *Flags
+	Flags Flags
 }
 
 func (c CmdSetFlag) Execute(_ context.Context, d *RuntimeData) error {
 	if c.Flags != nil {
-		d.Flags = *canonicalFlags(*c.Flags, nil, d.FlagAliases)
+		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
 	}
 	return nil
 }
 
 type CmdAddFlag struct {
-	Flags *Flags
+	Flags Flags
 }
 
 func (c CmdAddFlag) Execute(_ context.Context, d *RuntimeData) error {
 	if c.Flags != nil {
+		flags := expandVarsList(d, c.Flags)
+
 		if d.Flags == nil {
-			d.Flags = make([]string, len(*c.Flags))
-			copy(d.Flags, *c.Flags)
+			d.Flags = make([]string, len(flags))
+			copy(d.Flags, flags)
 		} else {
 			// Use canonicalFlags to remove duplicates
-			d.Flags = *canonicalFlags(append(d.Flags, *c.Flags...), nil, d.FlagAliases)
+			d.Flags = canonicalFlags(append(d.Flags, flags...), nil, d.FlagAliases)
 		}
 	}
 	return nil
 }
 
 type CmdRemoveFlag struct {
-	Flags *Flags
+	Flags Flags
 }
 
 func (c CmdRemoveFlag) Execute(_ context.Context, d *RuntimeData) error {
 	if c.Flags != nil {
 		// Use canonicalFlags to remove duplicates
-		d.Flags = *canonicalFlags(d.Flags, c.Flags, d.FlagAliases)
+		d.Flags = canonicalFlags(d.Flags, expandVarsList(d, c.Flags), d.FlagAliases)
 	}
 	return nil
 }

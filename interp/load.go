@@ -9,8 +9,9 @@ import (
 )
 
 var supportedRequires = map[string]struct{}{
-	"fileinto": {},
-	"envelope": {},
+	"fileinto":          {},
+	"envelope":          {},
+	"encoded-character": {},
 
 	"comparator-i;octet":           {},
 	"comparator-i;ascii-casemap":   {},
@@ -18,6 +19,7 @@ var supportedRequires = map[string]struct{}{
 	"comparator-i;unicode-casemap": {},
 
 	"imap4flags": {},
+	"variables":  {},
 }
 
 var (
@@ -29,21 +31,22 @@ func init() {
 	// break initialization loop
 
 	commands = map[string]func(*Script, parser.Cmd) (Cmd, error){
-		// RFC 5228 Actions
-		"require": loadRequire,
-		"if":      loadIf,
-		"elsif":   loadElsif,
-		"else":    loadElse,
-		"stop":    loadStop,
-		// RFC 5228 Actions
+		// RFC 5228
+		"require":  loadRequire,
+		"if":       loadIf,
+		"elsif":    loadElsif,
+		"else":     loadElse,
+		"stop":     loadStop,
 		"fileinto": loadFileInto, // fileinto extension
 		"redirect": loadRedirect,
 		"keep":     loadKeep,
 		"discard":  loadDiscard,
-		// RFC 5232 Actions
-		"setflag":    loadSetFlag,    // imap4flags extension
-		"addflag":    loadAddFlag,    // imap4flags extension
-		"removeflag": loadRemoveFlag, // imap4flags extension
+		// RFC 5232 (imap4flags extension)
+		"setflag":    loadSetFlag,
+		"addflag":    loadAddFlag,
+		"removeflag": loadRemoveFlag,
+		// RFC 5229 (variables extension)
+		"set": loadSet,
 		// vnd.dovecot.testsuite
 		"test":             loadDovecotTest,
 		"test_set":         loadDovecotTestSet,
@@ -53,15 +56,15 @@ func init() {
 		// "test_result_execute" // apply script results (validated using test_message)
 		// "test_mailbox_create"
 		// "test_imap_metadata_set"
-		// "test_config_reload"
-		// "test_config_set"
-		// "test_config_unset"
+		"test_config_reload": loadNoop, // go-sieve applies changes immediately
+		"test_config_set":    loadDovecotConfigSet,
+		"test_config_unset":  loadDovecotConfigUnset,
 		// "test_result_reset"
 		// "test_message"
 
 	}
 	tests = map[string]func(*Script, parser.Test) (Test, error){
-		// RFC 5228 Tests
+		// RFC 5228
 		"address":  loadAddressTest,
 		"allof":    loadAllOfTest,
 		"anyof":    loadAnyOfTest,
@@ -72,6 +75,8 @@ func init() {
 		"header":   loadHeaderTest,
 		"not":      loadNotTest,
 		"size":     loadSizeTest,
+		// RFC 5229 (variables extension)
+		"string": loadStringTest,
 		// vnd.dovecot.testsuite
 		"test_script_compile": loadDovecotCompile, // compile script (to test for compile errors)
 		"test_script_run":     loadDovecotRun,     // run script (to test for run-time errors)

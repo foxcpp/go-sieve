@@ -24,6 +24,8 @@ const (
 	ComparatorASCIICaseMap   Comparator = "i;ascii-casemap"
 	ComparatorASCIINumeric   Comparator = "i;ascii-numeric"
 	ComparatorUnicodeCaseMap Comparator = "i;unicode-casemap"
+
+	DefaultComparator = ComparatorASCIICaseMap
 )
 
 type AddressPart string
@@ -74,59 +76,65 @@ func numericValue(s string) *uint64 {
 	return &digit
 }
 
-func testString(comparator Comparator, match Match, value, key string) (bool, error) {
+func testString(comparator Comparator, match Match, value, key string) (bool, []string, error) {
 	switch comparator {
 	case ComparatorOctet:
 		switch match {
 		case MatchContains:
-			return strings.Contains(value, key), nil
+			return strings.Contains(value, key), nil, nil
 		case MatchIs:
-			return value == key, nil
+			return value == key, nil, nil
 		case MatchMatches:
-			return matchOctet(key, value)
+			return matchOctet(key, value, false)
 		}
 	case ComparatorASCIINumeric:
 		switch match {
 		case MatchContains:
-			return false, ErrComparatorMatchUnsupported
+			return false, nil, ErrComparatorMatchUnsupported
 		case MatchIs:
 			lhsNum := numericValue(value)
 			rhsNum := numericValue(key)
 			if lhsNum == nil || rhsNum == nil {
-				return false, nil
+				return false, nil, nil
 			}
-			return *lhsNum == *rhsNum, nil
+			return *lhsNum == *rhsNum, nil, nil
 		case MatchMatches:
-			return false, ErrComparatorMatchUnsupported
+			return false, nil, ErrComparatorMatchUnsupported
 		}
 	case ComparatorASCIICaseMap:
-		value = strings.ToLower(value)
-		key = strings.ToLower(key)
 		switch match {
 		case MatchContains:
-			return strings.Contains(value, key), nil
+			value = strings.ToLower(value)
+			key = strings.ToLower(key)
+			return strings.Contains(value, key), nil, nil
 		case MatchIs:
-			return value == key, nil
+			value = strings.ToLower(value)
+			key = strings.ToLower(key)
+			return value == key, nil, nil
 		case MatchMatches:
-			return matchUnicode(value, key)
+			return matchOctet(key, value, true)
 		}
 	case ComparatorUnicodeCaseMap:
-		value = strings.ToLower(value)
-		key = strings.ToLower(key)
 		switch match {
 		case MatchContains:
-			return strings.Contains(value, key), nil
+			value = strings.ToLower(value)
+			key = strings.ToLower(key)
+			return strings.Contains(value, key), nil, nil
 		case MatchIs:
-			return value == key, nil
+			return strings.EqualFold(value, key), nil, nil
 		case MatchMatches:
-			return matchUnicode(value, key)
+			return matchUnicode(key, value, true)
 		}
 	}
-	return false, nil
+	return false, nil, nil
 }
 
-func testAddress(part AddressPart, comparator Comparator, match Match, headerVal []*mail.Address, addrValue string) (bool, error) {
+func testAddress(part AddressPart, comparator Comparator, match Match, headerVal []*mail.Address, addrValue string) (bool, []string, error) {
 	for _, addr := range headerVal {
+		if addr.Address == "<>" {
+			addr.Address = ""
+		}
+
 		var valueToCompare string
 		if addr.Address != "" {
 			switch part {
@@ -147,13 +155,13 @@ func testAddress(part AddressPart, comparator Comparator, match Match, headerVal
 			}
 		}
 
-		ok, err := testString(comparator, match, valueToCompare, addrValue)
+		ok, matches, err := testString(comparator, match, valueToCompare, addrValue)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		if ok {
-			return true, nil
+			return true, matches, nil
 		}
 	}
-	return false, nil
+	return false, nil, nil
 }

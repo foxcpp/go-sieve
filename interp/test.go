@@ -3,8 +3,9 @@ package interp
 import (
 	"context"
 	"fmt"
-	"net/mail"
 	"strings"
+
+	"github.com/emersion/go-message/mail"
 )
 
 type Test interface {
@@ -21,6 +22,7 @@ type AddressTest struct {
 }
 
 var allowedAddrHeaders = map[string]struct{}{
+	// Required by Sieve.
 	"from":        {},
 	"to":          {},
 	"cc":          {},
@@ -28,10 +30,40 @@ var allowedAddrHeaders = map[string]struct{}{
 	"sender":      {},
 	"resent-from": {},
 	"resent-to":   {},
+	// Misc (RFC 2822)
+	"reply-to":        {},
+	"resent-reply-to": {},
+	"resent-sender":   {},
+	"resent-cc":       {},
+	"resent-bcc":      {},
+	// Non-standard (RFC 2076, draft-palme-mailext-headers-08.txt)
+	"for-approval":                       {},
+	"for-handling":                       {},
+	"for-comment":                        {},
+	"apparently-to":                      {},
+	"errors-to":                          {},
+	"delivered-to":                       {},
+	"return-receipt-to":                  {},
+	"x-admin":                            {},
+	"read-receipt-to":                    {},
+	"x-confirm-reading-to":               {},
+	"return-receipt-requested":           {},
+	"registered-mail-reply-requested-by": {},
+	"mail-followup-to":                   {},
+	"mail-reply-to":                      {},
+	"abuse-reports-to":                   {},
+	"x-complaints-to":                    {},
+	"x-report-abuse-to":                  {},
+	"x-beenthere":                        {},
+	"x-original-from":                    {},
+	"x-original-to":                      {},
 }
 
-func (a AddressTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (a AddressTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	for _, hdr := range a.Header {
+		hdr = strings.ToLower(hdr)
+		hdr = expandVars(d, hdr)
+
 		if _, ok := allowedAddrHeaders[hdr]; !ok {
 			continue
 		}
@@ -41,8 +73,6 @@ func (a AddressTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 			return false, err
 		}
 
-		// TODO: Reconsider how this works with field decoding
-
 		for _, value := range values {
 			addrList, err := mail.ParseAddressList(value)
 			if err != nil {
@@ -50,11 +80,14 @@ func (a AddressTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 			}
 
 			for _, k := range a.Key {
-				ok, err := testAddress(a.AddressPart, a.Comparator, a.Match, addrList, k)
+				ok, matches, err := testAddress(a.AddressPart, a.Comparator, a.Match, addrList, expandVars(d, k))
 				if err != nil {
 					return false, err
 				}
 				if ok {
+					if a.Match == MatchMatches {
+						d.MatchVariables = matches
+					}
 					return true, nil
 				}
 			}
@@ -106,10 +139,10 @@ type EnvelopeTest struct {
 	Key   []string
 }
 
-func (e EnvelopeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (e EnvelopeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	for _, field := range e.Field {
 		var value string
-		switch strings.ToLower(field) {
+		switch strings.ToLower(expandVars(d, field)) {
 		case "from":
 			value = d.Envelope.EnvelopeFrom()
 		case "to":
@@ -121,13 +154,16 @@ func (e EnvelopeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 		}
 
 		for _, k := range e.Key {
-			ok, err := testAddress(e.AddressPart, e.Comparator, e.Match, []*mail.Address{
+			ok, matches, err := testAddress(e.AddressPart, e.Comparator, e.Match, []*mail.Address{
 				{Address: value},
-			}, k)
+			}, expandVars(d, k))
 			if err != nil {
 				return false, err
 			}
 			if ok {
+				if e.Match == MatchMatches {
+					d.MatchVariables = matches
+				}
 				return true, nil
 			}
 		}
@@ -139,9 +175,9 @@ type ExistsTest struct {
 	Fields []string
 }
 
-func (e ExistsTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (e ExistsTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	for _, field := range e.Fields {
-		values, err := d.Msg.HeaderGet(field)
+		values, err := d.Msg.HeaderGet(expandVars(d, field))
 		if err != nil {
 			return false, err
 		}
@@ -154,13 +190,13 @@ func (e ExistsTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 
 type FalseTest struct{}
 
-func (f FalseTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (f FalseTest) Check(context.Context, *RuntimeData) (bool, error) {
 	return false, nil
 }
 
 type TrueTest struct{}
 
-func (t TrueTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (t TrueTest) Check(context.Context, *RuntimeData) (bool, error) {
 	return true, nil
 }
 
@@ -172,20 +208,23 @@ type HeaderTest struct {
 	Key    []string
 }
 
-func (h HeaderTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	for _, hdr := range h.Header {
-		values, err := d.Msg.HeaderGet(hdr)
+		values, err := d.Msg.HeaderGet(expandVars(d, hdr))
 		if err != nil {
 			return false, err
 		}
 
 		for _, value := range values {
 			for _, k := range h.Key {
-				ok, err := testString(h.Comparator, h.Match, value, k)
+				ok, matches, err := testString(h.Comparator, h.Match, value, expandVars(d, k))
 				if err != nil {
 					return false, err
 				}
 				if ok {
+					if h.Match == MatchMatches {
+						d.MatchVariables = matches
+					}
 					return true, nil
 				}
 			}
@@ -212,7 +251,7 @@ type SizeTest struct {
 	Under bool
 }
 
-func (s SizeTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (s SizeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	if s.Over && d.Msg.MessageSize() > s.Size {
 		return true, nil
 	}

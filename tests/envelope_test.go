@@ -3,10 +3,16 @@ package tests
 import (
 	"path/filepath"
 	"testing"
-
-	"github.com/foxcpp/go-sieve"
 )
 
 func TestExtensionsEnvelope(t *testing.T) {
-	sieve.RunDovecotTest(t, filepath.Join("pigeonhole", "tests", "extensions", "envelope.svtest"))
+	RunDovecotTestWithout(t, filepath.Join("pigeonhole", "tests", "extensions", "envelope.svtest"),
+		[]string{
+			// Parser does not understand source routes
+			"Envelope - source route",
+			"Envelope - source route errors",
+			// Envelope address validation is left to the library user e.g. SMTP server.
+			"Envelope - invalid paths",
+			"Envelope - syntax errors",
+		})
 }

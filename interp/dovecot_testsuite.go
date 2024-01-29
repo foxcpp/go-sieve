@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/textproto"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -25,13 +26,20 @@ type CmdDovecotTest struct {
 func (c CmdDovecotTest) Execute(ctx context.Context, d *RuntimeData) error {
 	testData := d.Copy()
 	testData.testName = c.TestName
+	testData.testFailMessage = ""
 
 	d.Script.opts.T.Run(c.TestName, func(t *testing.T) {
+		for _, testName := range testData.Script.opts.DisabledTests {
+			if c.TestName == testName {
+				t.Skip("test is disabled by DisabledTests")
+			}
+		}
+
 		for _, cmd := range c.Cmds {
 			if err := cmd.Execute(ctx, testData); err != nil {
 				if errors.Is(err, ErrStop) {
 					if testData.testFailMessage != "" {
-						t.Error("test_fail called:", testData.testFailMessage)
+						t.Errorf("test_fail at %v called: %v", testData.testFailAt, testData.testFailMessage)
 					}
 					return
 				}
@@ -44,11 +52,37 @@ func (c CmdDovecotTest) Execute(ctx context.Context, d *RuntimeData) error {
 }
 
 type CmdDovecotTestFail struct {
+	At      lexer.Position
 	Message string
 }
 
-func (c CmdDovecotTestFail) Execute(ctx context.Context, d *RuntimeData) error {
-	d.testFailMessage = c.Message
+func (c CmdDovecotTestFail) Execute(_ context.Context, d *RuntimeData) error {
+	d.testFailMessage = expandVars(d, c.Message)
+	d.testFailAt = c.At
+	return ErrStop
+}
+
+type CmdDovecotConfigSet struct {
+	Unset bool
+	Key   string
+	Value string
+}
+
+func (c CmdDovecotConfigSet) Execute(_ context.Context, d *RuntimeData) error {
+	switch c.Key {
+	case "sieve_variables_max_variable_size":
+		if c.Unset {
+			d.Script.opts.MaxVariableLen = 4000
+		} else {
+			val, err := strconv.Atoi(c.Value)
+			if err != nil {
+				return err
+			}
+			d.Script.opts.MaxVariableLen = val
+		}
+	default:
+		return fmt.Errorf("unknown test_config_set key: %v", c.Key)
+	}
 	return nil
 }
 
@@ -57,7 +91,9 @@ type CmdDovecotTestSet struct {
 	VariableValue string
 }
 
-func (c CmdDovecotTestSet) Execute(ctx context.Context, d *RuntimeData) error {
+func (c CmdDovecotTestSet) Execute(_ context.Context, d *RuntimeData) error {
+	value := expandVars(d, c.VariableValue)
+
 	switch c.VariableName {
 	case "message":
 		r := textproto.NewReader(bufio.NewReader(strings.NewReader(c.VariableValue)))
@@ -71,14 +107,26 @@ func (c CmdDovecotTestSet) Execute(ctx context.Context, d *RuntimeData) error {
 			Header: msgHdr,
 		}
 	case "envelope.from":
+		value = strings.TrimSuffix(strings.TrimPrefix(value, "<"), ">")
+
 		d.Envelope = EnvelopeStatic{
-			From: c.VariableValue,
+			From: value,
 			To:   d.Envelope.EnvelopeTo(),
+			Auth: d.Envelope.AuthUsername(),
 		}
 	case "envelope.to":
+		value = strings.TrimSuffix(strings.TrimPrefix(value, "<"), ">")
+
 		d.Envelope = EnvelopeStatic{
 			From: d.Envelope.EnvelopeFrom(),
-			To:   c.VariableValue,
+			To:   value,
+			Auth: d.Envelope.AuthUsername(),
+		}
+	case "envelope.auth":
+		d.Envelope = EnvelopeStatic{
+			From: d.Envelope.EnvelopeFrom(),
+			To:   d.Envelope.EnvelopeTo(),
+			Auth: value,
 		}
 	default:
 		d.Variables[c.VariableName] = c.VariableValue
@@ -91,7 +139,7 @@ type TestDovecotCompile struct {
 	ScriptPath string
 }
 
-func (t TestDovecotCompile) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	if d.Namespace == nil {
 		return false, fmt.Errorf("RuntimeData.Namespace is not set, cannot load scripts")
 	}
@@ -151,7 +199,7 @@ func (t TestDovecotRun) Check(ctx context.Context, d *RuntimeData) (bool, error)
 type TestDovecotTestError struct {
 }
 
-func (t TestDovecotTestError) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+func (t TestDovecotTestError) Check(_ context.Context, _ *RuntimeData) (bool, error) {
 	// go-sieve has a very different error formatting and stops lexing/parsing/loading
 	// on first error, therefore we skip all test_errors checks as they are
 	// Pigeonhole-specific.

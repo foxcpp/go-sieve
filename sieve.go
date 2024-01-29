@@ -33,7 +33,10 @@ func DefaultOptions() Options {
 			MaxTestNesting:  15,
 		},
 		Interp: interp.Options{
-			MaxRedirects: 5,
+			MaxRedirects:       5,
+			MaxVariableCount:   128,
+			MaxVariableNameLen: 32,
+			MaxVariableLen:     4000,
 		},
 	}
 }
