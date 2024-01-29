@@ -63,7 +63,7 @@ if envelope :is "from" "test@example.org" {
 `, []Cmd{
 		CmdIf{
 			Test: EnvelopeTest{
-				Comparator:  ComparatorOctet,
+				Comparator:  ComparatorASCIICaseMap,
 				Match:       MatchIs,
 				AddressPart: All,
 				Field:       []string{"from"},
@@ -84,19 +84,19 @@ removeflag "flag2";
 `, []Cmd{
 		CmdFileInto{
 			Mailbox: "hell",
-			Flags:   &Flags{"flag1", "flag2"},
+			Flags:   Flags{"flag1", "flag2"},
 		},
 		CmdKeep{
-			Flags: &Flags{"flag1", "flag2"},
+			Flags: Flags{"flag1", "flag2"},
 		},
 		CmdSetFlag{
-			Flags: &Flags{"flag1", "flag2"},
+			Flags: Flags{"flag1", "flag2"},
 		},
 		CmdAddFlag{
-			Flags: &Flags{"flag1", "flag2"},
+			Flags: Flags{"flag1", "flag2"},
 		},
 		CmdRemoveFlag{
-			Flags: &Flags{"flag2"},
+			Flags: Flags{"flag2"},
 		},
 	})
 }
