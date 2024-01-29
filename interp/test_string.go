@@ -3,7 +3,6 @@ package interp
 import (
 	"errors"
 	"fmt"
-	"net/mail"
 	"strconv"
 	"strings"
 	"unicode"
@@ -15,6 +14,8 @@ const (
 	MatchContains Match = "contains"
 	MatchIs       Match = "is"
 	MatchMatches  Match = "matches"
+	MatchValue    Match = "value"
+	MatchCount    Match = "count"
 )
 
 type Comparator string
@@ -59,6 +60,8 @@ func split(addr string) (mailbox, domain string, err error) {
 var ErrComparatorMatchUnsupported = fmt.Errorf("match-comparator combination not supported")
 
 func numericValue(s string) *uint64 {
+	// https://www.rfc-editor.org/rfc/rfc4790.html#section-9.1
+
 	if len(s) == 0 {
 		return nil
 	}
@@ -70,13 +73,20 @@ func numericValue(s string) *uint64 {
 	for i, r := range runes {
 		if !unicode.IsDigit(r) {
 			sl = string(runes[:i])
+			break
 		}
 	}
-	digit, _ := strconv.ParseUint(sl, 10, 64)
+	if sl == "" {
+		sl = s
+	}
+	digit, err := strconv.ParseUint(sl, 10, 64)
+	if err != nil {
+		return nil
+	}
 	return &digit
 }
 
-func testString(comparator Comparator, match Match, value, key string) (bool, []string, error) {
+func testString(comparator Comparator, match Match, rel Relational, value, key string) (bool, []string, error) {
 	switch comparator {
 	case ComparatorOctet:
 		switch match {
@@ -86,6 +96,10 @@ func testString(comparator Comparator, match Match, value, key string) (bool, []
 			return value == key, nil, nil
 		case MatchMatches:
 			return matchOctet(key, value, false)
+		case MatchValue:
+			return rel.CompareString(value, key), nil, nil
+		case MatchCount:
+			panic("testString should not be used with MatchCount")
 		}
 	case ComparatorASCIINumeric:
 		switch match {
@@ -94,25 +108,34 @@ func testString(comparator Comparator, match Match, value, key string) (bool, []
 		case MatchIs:
 			lhsNum := numericValue(value)
 			rhsNum := numericValue(key)
-			if lhsNum == nil || rhsNum == nil {
-				return false, nil, nil
-			}
-			return *lhsNum == *rhsNum, nil, nil
+			return RelEqual.CompareNumericValue(lhsNum, rhsNum), nil, nil
 		case MatchMatches:
 			return false, nil, ErrComparatorMatchUnsupported
+		case MatchValue:
+			lhsNum := numericValue(value)
+			rhsNum := numericValue(key)
+			return rel.CompareNumericValue(lhsNum, rhsNum), nil, nil
+		case MatchCount:
+			panic("testString should not be used with MatchCount")
 		}
 	case ComparatorASCIICaseMap:
 		switch match {
 		case MatchContains:
-			value = strings.ToLower(value)
-			key = strings.ToLower(key)
+			value = toLowerASCII(value)
+			key = toLowerASCII(key)
 			return strings.Contains(value, key), nil, nil
 		case MatchIs:
-			value = strings.ToLower(value)
-			key = strings.ToLower(key)
+			value = toLowerASCII(value)
+			key = toLowerASCII(key)
 			return value == key, nil, nil
 		case MatchMatches:
 			return matchOctet(key, value, true)
+		case MatchValue:
+			value = toLowerASCII(value)
+			key = toLowerASCII(key)
+			return rel.CompareString(value, key), nil, nil
+		case MatchCount:
+			panic("testString should not be used with MatchCount")
 		}
 	case ComparatorUnicodeCaseMap:
 		switch match {
@@ -124,44 +147,76 @@ func testString(comparator Comparator, match Match, value, key string) (bool, []
 			return strings.EqualFold(value, key), nil, nil
 		case MatchMatches:
 			return matchUnicode(key, value, true)
+		case MatchValue:
+			value = toLowerASCII(value)
+			key = toLowerASCII(key)
+			return rel.CompareString(value, key), nil, nil
+		case MatchCount:
+			panic("testString should not be used with MatchCount")
 		}
 	}
 	return false, nil, nil
 }
 
-func testAddress(d *RuntimeData, matcher matcherTest, part AddressPart, headerVal []*mail.Address) (bool, error) {
-	for _, addr := range headerVal {
-		if addr.Address == "<>" {
-			addr.Address = ""
-		}
+func testAddress(d *RuntimeData, matcher matcherTest, part AddressPart, address string) (bool, error) {
+	if address == "<>" {
+		address = ""
+	}
 
-		var valueToCompare string
-		if addr.Address != "" {
-			switch part {
-			case LocalPart:
-				localPart, _, err := split(addr.Address)
-				if err != nil {
-					continue
-				}
-				valueToCompare = localPart
-			case Domain:
-				_, domain, err := split(addr.Address)
-				if err != nil {
-					continue
-				}
-				valueToCompare = domain
-			case All:
-				valueToCompare = addr.Address
+	var valueToCompare string
+	if address != "" {
+		switch part {
+		case LocalPart:
+			localPart, _, err := split(address)
+			if err != nil {
+				return false, nil
 			}
-		}
-
-		ok, err := matcher.tryMatch(d, valueToCompare)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			return true, nil
+			valueToCompare = localPart
+		case Domain:
+			_, domain, err := split(address)
+			if err != nil {
+				return false, nil
+			}
+			valueToCompare = domain
+		case All:
+			valueToCompare = address
 		}
 	}
-	return false, nil
+
+	ok, err := matcher.tryMatch(d, valueToCompare)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+func toLowerASCII(s string) string {
+	hasUpper := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		hasUpper = hasUpper || ('A' <= c && c <= 'Z')
+	}
+	if !hasUpper {
+		return s
+	}
+	var (
+		b   strings.Builder
+		pos int
+	)
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+			if pos < i {
+				b.WriteString(s[pos:i])
+			}
+			b.WriteByte(c)
+			pos = i + 1
+		}
+	}
+	if pos < len(s) {
+		b.WriteString(s[pos:])
+	}
+	return b.String()
 }

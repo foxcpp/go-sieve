@@ -10,7 +10,6 @@ func TestExtensionsVariablesBasic(t *testing.T) {
 }
 
 func TestExtensionsVariablesErrors(t *testing.T) {
-	t.Skip("requires relational extension")
 	RunDovecotTest(t, filepath.Join("pigeonhole", "tests", "extensions", "variables", "errors.svtest"))
 }
 
@@ -36,6 +35,5 @@ func TestExtensionsVariablesRegex(t *testing.T) {
 }
 
 func TestExtensionsVariablesString(t *testing.T) {
-	t.Skip("requires relational extension")
 	RunDovecotTest(t, filepath.Join("pigeonhole", "tests", "extensions", "variables", "string.svtest"))
 }

@@ -96,8 +96,16 @@ type TestString struct {
 }
 
 func (t TestString) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	entryCount := uint64(0)
 	for _, source := range t.Source {
 		source = expandVars(d, source)
+
+		if t.isCount() {
+			if source != "" {
+				entryCount++
+			}
+			continue
+		}
 
 		ok, err := t.matcherTest.tryMatch(d, source)
 		if err != nil {
@@ -107,5 +115,10 @@ func (t TestString) Check(_ context.Context, d *RuntimeData) (bool, error) {
 			return true, nil
 		}
 	}
+
+	if t.isCount() {
+		return t.countMatches(d, entryCount), nil
+	}
+
 	return false, nil
 }

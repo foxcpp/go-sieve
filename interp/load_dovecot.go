@@ -158,7 +158,23 @@ func loadDovecotRun(s *Script, test parser.Test) (Test, error) {
 }
 
 func loadDovecotError(s *Script, test parser.Test) (Test, error) {
-	loaded := TestDovecotTestError{}
-	err := LoadSpec(s, &Spec{}, test.Position, test.Args, test.Tests, nil)
+	loaded := TestDovecotTestError{matcherTest: newMatcherTest()}
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+		Tags: map[string]SpecTag{
+			"index": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchNum:    func(val int) {},
+			},
+		},
+		Pos: []SpecPosArg{
+			{
+				MatchStr:    func(val []string) {},
+				MinStrCount: 1,
+			},
+		},
+	}), test.Position, test.Args, test.Tests, nil)
 	return loaded, err
 }

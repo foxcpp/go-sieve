@@ -63,11 +63,13 @@ if envelope :is "from" "test@example.org" {
 `, []Cmd{
 		CmdIf{
 			Test: EnvelopeTest{
-				Comparator:  ComparatorASCIICaseMap,
-				Match:       MatchIs,
+				matcherTest: matcherTest{
+					comparator: ComparatorASCIICaseMap,
+					match:      MatchIs,
+					key:        []string{"test@example.org"},
+				},
 				AddressPart: All,
 				Field:       []string{"from"},
-				Key:         []string{"test@example.org"},
 			},
 			Block: []Cmd{
 				CmdFileInto{Mailbox: "hell"},

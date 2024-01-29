@@ -58,6 +58,7 @@ var allowedAddrHeaders = map[string]struct{}{
 }
 
 func (a AddressTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	entryCount := uint64(0)
 	for _, hdr := range a.Header {
 		hdr = strings.ToLower(hdr)
 		hdr = expandVars(d, hdr)
@@ -77,15 +78,27 @@ func (a AddressTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 				return false, nil
 			}
 
-			ok, err := testAddress(d, a.matcherTest, a.AddressPart, addrList)
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				return true, nil
+			for _, addr := range addrList {
+				if a.isCount() {
+					entryCount++
+					continue
+				}
+
+				ok, err := testAddress(d, a.matcherTest, a.AddressPart, addr.Address)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					return true, nil
+				}
 			}
 		}
 	}
+
+	if a.isCount() {
+		return a.countMatches(d, entryCount), nil
+	}
+
 	return false, nil
 }
 
@@ -131,6 +144,7 @@ type EnvelopeTest struct {
 }
 
 func (e EnvelopeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	entryCount := uint64(0)
 	for _, field := range e.Field {
 		var value string
 		switch strings.ToLower(expandVars(d, field)) {
@@ -143,16 +157,23 @@ func (e EnvelopeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 		default:
 			return false, fmt.Errorf("envelope: unsupported envelope-part: %v", field)
 		}
+		if e.isCount() {
+			if value != "" {
+				entryCount++
+			}
+			continue
+		}
 
-		ok, err := testAddress(d, e.matcherTest, e.AddressPart, []*mail.Address{
-			{Address: value},
-		})
+		ok, err := testAddress(d, e.matcherTest, e.AddressPart, value)
 		if err != nil {
 			return false, err
 		}
 		if ok {
 			return true, nil
 		}
+	}
+	if e.isCount() {
+		return e.countMatches(d, entryCount), nil
 	}
 	return false, nil
 }
@@ -193,6 +214,7 @@ type HeaderTest struct {
 }
 
 func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	entryCount := uint64(0)
 	for _, hdr := range h.Header {
 		values, err := d.Msg.HeaderGet(expandVars(d, hdr))
 		if err != nil {
@@ -200,6 +222,11 @@ func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 		}
 
 		for _, value := range values {
+			if h.isCount() {
+				entryCount++
+				continue
+			}
+
 			ok, err := h.matcherTest.tryMatch(d, value)
 			if err != nil {
 				return false, err
@@ -209,6 +236,11 @@ func (h HeaderTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 			}
 		}
 	}
+
+	if h.isCount() {
+		return h.countMatches(d, entryCount), nil
+	}
+
 	return false, nil
 }
 

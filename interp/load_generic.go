@@ -182,7 +182,7 @@ func LoadSpec(s *Script, spec *Spec, position lexer.Position, args []parser.Arg,
 			}
 			tag, ok := spec.Tags[strings.ToLower(a.Value)]
 			if !ok {
-				return lexer.ErrorAt(a, "LoadSpec: unknown tagged argument: %v", a)
+				return lexer.ErrorAt(a, "LoadSpec: unknown tagged argument: %v", a.Value)
 			}
 			if tag.NeedsValue {
 				lastTag = &tag

@@ -6,11 +6,15 @@ import (
 )
 
 type Position struct {
+	File string
 	Line int
 	Col  int
 }
 
 func (l Position) String() string {
+	if l.File != "" {
+		return l.File + ":" + strconv.Itoa(l.Line) + ":" + strconv.Itoa(l.Col)
+	}
 	return strconv.Itoa(l.Line) + ":" + strconv.Itoa(l.Col)
 }
 

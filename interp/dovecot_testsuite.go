@@ -150,6 +150,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 	}
 
 	toks, err := lexer.Lex(bytes.NewReader(svScript), &lexer.Options{
+		Filename:  t.ScriptPath,
 		MaxTokens: 5000,
 	})
 	if err != nil {
@@ -197,6 +198,7 @@ func (t TestDovecotRun) Check(ctx context.Context, d *RuntimeData) (bool, error)
 }
 
 type TestDovecotTestError struct {
+	matcherTest
 }
 
 func (t TestDovecotTestError) Check(_ context.Context, _ *RuntimeData) (bool, error) {

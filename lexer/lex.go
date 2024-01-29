@@ -10,6 +10,7 @@ import (
 )
 
 type Options struct {
+	Filename   string
 	NoPosition bool
 	MaxTokens  int
 }
@@ -59,6 +60,7 @@ type lexerState struct {
 func tokenStream(r *bufio.Reader, opts *Options) ([]Token, error) {
 	res := []Token{}
 	state := &lexerState{}
+	state.File = opts.Filename
 	state.Line = 1
 	for {
 		b, err := r.ReadByte()
