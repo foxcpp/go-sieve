@@ -2,6 +2,7 @@ package interp
 
 import (
 	"context"
+	"encoding/gob"
 )
 
 type CmdIf struct {
@@ -63,4 +64,10 @@ func (c CmdElse) Execute(ctx context.Context, d *RuntimeData) error {
 		}
 	}
 	return nil
+}
+
+func init() {
+	gob.Register(&CmdIf{})
+	gob.Register(&CmdElsif{})
+	gob.Register(&CmdElse{})
 }

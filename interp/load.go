@@ -52,8 +52,8 @@ func init() {
 		"test":             loadDovecotTest,
 		"test_set":         loadDovecotTestSet,
 		"test_fail":        loadDovecotTestFail,
-		"test_binary_load": loadNoop, // go-sieve has no intermediate binary representation
-		"test_binary_save": loadNoop, // go-sieve has no intermediate binary representation
+		"test_binary_load": loadDovecotBinaryLoad, // go-sieve has no intermediate binary representation
+		"test_binary_save": loadDovecotBinarySave, // go-sieve has no intermediate binary representation
 		// "test_result_execute" // apply script results (validated using test_message)
 		// "test_mailbox_create"
 		// "test_imap_metadata_set"

@@ -151,6 +151,38 @@ func loadDovecotConfigUnset(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	return loaded, err
 }
 
+func loadDovecotBinarySave(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	loaded := CmdDovecotBinarySave{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Name = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+	return loaded, err
+}
+
+func loadDovecotBinaryLoad(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	loaded := CmdDovecotBinarySave{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Name = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+	return loaded, err
+}
+
 func loadDovecotRun(s *Script, test parser.Test) (Test, error) {
 	loaded := TestDovecotRun{}
 	err := LoadSpec(s, &Spec{}, test.Position, test.Args, test.Tests, nil)

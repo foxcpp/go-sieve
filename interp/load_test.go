@@ -64,9 +64,9 @@ if envelope :is "from" "test@example.org" {
 		CmdIf{
 			Test: EnvelopeTest{
 				matcherTest: matcherTest{
-					comparator: ComparatorASCIICaseMap,
-					match:      MatchIs,
-					key:        []string{"test@example.org"},
+					Comparator: ComparatorASCIICaseMap,
+					Match:      MatchIs,
+					Key:        []string{"test@example.org"},
 				},
 				AddressPart: All,
 				Field:       []string{"from"},

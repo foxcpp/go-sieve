@@ -2,6 +2,7 @@ package interp
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 )
 
@@ -118,4 +119,15 @@ func (c CmdRemoveFlag) Execute(_ context.Context, d *RuntimeData) error {
 		d.Flags = canonicalFlags(d.Flags, expandVarsList(d, c.Flags), d.FlagAliases)
 	}
 	return nil
+}
+
+func init() {
+	gob.Register(CmdStop{})
+	gob.Register(CmdFileInto{})
+	gob.Register(CmdRedirect{})
+	gob.Register(CmdKeep{})
+	gob.Register(CmdDiscard{})
+	gob.Register(CmdSetFlag{})
+	gob.Register(CmdAddFlag{})
+	gob.Register(CmdRemoveFlag{})
 }

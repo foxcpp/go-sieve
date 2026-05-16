@@ -1,6 +1,8 @@
 package interp
 
 import (
+	"bytes"
+	"encoding/gob"
 	"regexp"
 	"strings"
 
@@ -59,33 +61,78 @@ func patternToRegex(pattern string, caseFold bool) string {
 	return result.String()
 }
 
-type CompiledMatcher func(value string) (bool, []string, error)
+type compiledMatcherData struct {
+	Regexp string
+	Octet  bool
+}
+
+type CompiledMatcher struct {
+	compiledMatcherData
+	loaded bool
+	binary *binaryregexp.Regexp
+	string *regexp.Regexp
+}
+
+func (cm *CompiledMatcher) IsLoaded() bool {
+	return cm.loaded
+}
+
+func (cm *CompiledMatcher) GobDecode(i []byte) error {
+	err := gob.NewDecoder(bytes.NewBuffer(i)).Decode(&cm.compiledMatcherData)
+	if err != nil {
+		return err
+	}
+
+	return cm.restore()
+}
+
+func (cm *CompiledMatcher) restore() error {
+	var err error
+	if cm.Octet {
+		cm.binary, err = binaryregexp.Compile(cm.Regexp)
+	} else {
+		cm.string, err = regexp.Compile(cm.Regexp)
+	}
+	if err != nil {
+		return err
+	}
+
+	cm.loaded = true
+
+	return nil
+}
+
+func (cm *CompiledMatcher) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(cm.compiledMatcherData)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (cm *CompiledMatcher) Match(value string) (bool, []string, error) {
+	if cm.binary != nil {
+		matches := cm.binary.FindStringSubmatch(value)
+		return len(matches) != 0, matches, nil
+	}
+
+	matches := cm.string.FindStringSubmatch(value)
+	return len(matches) != 0, matches, nil
+}
 
 // compileMatcher returns a function that will check whether pre-defined pattern matches the passed
 // value. It is preferable to use compileMatcher over matchOctet, matchUnicode if
 // pattern does not change often (e.g. does not depend on any variables).
 func compileMatcher(pattern string, octet bool, caseFold bool) (CompiledMatcher, error) {
-	if octet {
-		regex, err := binaryregexp.Compile(patternToRegex(pattern, caseFold))
-		if err != nil {
-			return nil, err
-		}
+	res := CompiledMatcher{}
+	res.Regexp = patternToRegex(pattern, caseFold)
+	res.Octet = octet
 
-		return func(value string) (bool, []string, error) {
-			matches := regex.FindStringSubmatch(value)
-			return len(matches) != 0, matches, nil
-		}, nil
+	if err := res.restore(); err != nil {
+		return CompiledMatcher{}, err
 	}
-
-	regex, err := regexp.Compile(patternToRegex(pattern, caseFold))
-	if err != nil {
-		return nil, err
-	}
-
-	return func(value string) (bool, []string, error) {
-		matches := regex.FindStringSubmatch(value)
-		return len(matches) != 0, matches, nil
-	}, nil
+	return res, nil
 }
 
 func matchOctet(pattern, value string, caseFold bool) (bool, []string, error) {

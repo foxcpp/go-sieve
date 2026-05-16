@@ -2,6 +2,7 @@ package interp
 
 import (
 	"context"
+	"encoding/gob"
 	"regexp"
 	"strconv"
 	"strings"
@@ -121,4 +122,8 @@ func (t TestString) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func init() {
+	gob.Register(TestString{})
 }

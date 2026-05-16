@@ -48,7 +48,7 @@ func (s Script) RequiresExtension(name string) bool {
 	return ok
 }
 
-func (s *Script) IsVarUsable(variableName string) (settable, gettable bool) {
+func (s Script) IsVarUsable(variableName string) (settable, gettable bool) {
 	if len(variableName) > s.opts.MaxVariableNameLen {
 		return false, false
 	}

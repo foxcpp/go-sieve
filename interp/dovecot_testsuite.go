@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -135,6 +136,46 @@ func (c CmdDovecotTestSet) Execute(_ context.Context, d *RuntimeData) error {
 	return nil
 }
 
+type CmdDovecotBinarySave struct {
+	Name string
+}
+
+func (c CmdDovecotBinarySave) Execute(_ context.Context, d *RuntimeData) error {
+	if d.testSavedScripts == nil {
+		d.testSavedScripts = make(map[string][]byte)
+	}
+	if d.testScript == nil {
+		return fmt.Errorf("no script loaded to save")
+	}
+
+	blob, err := d.testScript.Save()
+	if err != nil {
+		return fmt.Errorf("failed to encode script: %v", err)
+	}
+
+	d.testSavedScripts[c.Name] = blob
+	return nil
+}
+
+type CmdDovecotBinaryLoad struct {
+	Name string
+}
+
+func (c CmdDovecotBinaryLoad) Execute(_ context.Context, d *RuntimeData) error {
+	blob := d.testSavedScripts[c.Name]
+	if blob == nil {
+		return fmt.Errorf("no such script loaded")
+	}
+
+	restored, err := Restore(blob)
+	if err != nil {
+		return err
+	}
+
+	d.testScript = restored
+	return nil
+}
+
 type TestDovecotCompile struct {
 	ScriptPath string
 }
@@ -146,6 +187,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 
 	svScript, err := fs.ReadFile(d.Namespace, t.ScriptPath)
 	if err != nil {
+		d.Script.opts.T.Log("ReadFile failed:", err)
 		return false, nil
 	}
 
@@ -154,6 +196,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 		MaxTokens: 5000,
 	})
 	if err != nil {
+		d.Script.opts.T.Log("lexer.Lex failed:", err)
 		return false, nil
 	}
 
@@ -162,6 +205,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 		MaxTestNesting:  d.testMaxNesting,
 	})
 	if err != nil {
+		d.Script.opts.T.Log("parser.Parse failed:", err)
 		return false, nil
 	}
 
@@ -169,6 +213,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 		MaxRedirects: d.Script.opts.MaxRedirects,
 	})
 	if err != nil {
+		d.Script.opts.T.Log("LoadScript failed:", err)
 		return false, nil
 	}
 
@@ -206,4 +251,15 @@ func (t TestDovecotTestError) Check(_ context.Context, _ *RuntimeData) (bool, er
 	// on first error, therefore we skip all test_errors checks as they are
 	// Pigeonhole-specific.
 	return true, nil
+}
+
+func init() {
+	gob.Register(CmdDovecotTest{})
+	gob.Register(CmdDovecotTestFail{})
+	gob.Register(CmdDovecotConfigSet{})
+	gob.Register(CmdDovecotBinarySave{})
+	gob.Register(CmdDovecotBinarySave{})
+	gob.Register(TestDovecotCompile{})
+	gob.Register(TestDovecotRun{})
+	gob.Register(TestDovecotTestError{})
 }

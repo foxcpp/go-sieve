@@ -2,6 +2,7 @@ package interp
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 	"strings"
 
@@ -270,4 +271,17 @@ func (s SizeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func init() {
+	gob.Register(AddressTest{})
+	gob.Register(AllOfTest{})
+	gob.Register(AnyOfTest{})
+	gob.Register(EnvelopeTest{})
+	gob.Register(ExistsTest{})
+	gob.Register(FalseTest{})
+	gob.Register(TrueTest{})
+	gob.Register(HeaderTest{})
+	gob.Register(NotTest{})
+	gob.Register(SizeTest{})
 }

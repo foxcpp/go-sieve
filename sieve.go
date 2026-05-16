@@ -55,6 +55,10 @@ func Load(r io.Reader, opts Options) (*Script, error) {
 	return interp.LoadScript(cmds, &opts.Interp)
 }
 
+func RestoreSaved(r io.Reader) (*Script, error) {
+	return interp.RestoreFrom(r)
+}
+
 func NewRuntimeData(s *Script, p interp.PolicyReader, e interp.Envelope, msg interp.Message) *interp.RuntimeData {
 	return interp.NewRuntimeData(s, p, e, msg)
 }

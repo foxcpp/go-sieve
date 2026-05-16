@@ -62,33 +62,35 @@ type RuntimeData struct {
 	Variables      map[string]string
 
 	// vnd.dovecot.testsuit state
-	testName        string
-	testFailMessage string // if set - test failed.
-	testFailAt      lexer.Position
-	testScript      *Script // script loaded using test_script_compile
-	testMaxNesting  int     // max nesting for scripts loaded using test_script_compile
+	testName         string
+	testFailMessage  string // if set - test failed.
+	testFailAt       lexer.Position
+	testScript       *Script           // script loaded using test_script_compile
+	testSavedScripts map[string][]byte // test_binary_save/test_binary_load
+	testMaxNesting   int               // max nesting for scripts loaded using test_script_compile
 }
 
 func (d *RuntimeData) Copy() *RuntimeData {
 	newData := &RuntimeData{
-		Policy:          d.Policy,
-		Envelope:        d.Envelope,
-		Msg:             d.Msg,
-		Script:          d.Script,
-		Namespace:       d.Namespace,
-		RedirectAddr:    make([]string, len(d.RedirectAddr)),
-		Mailboxes:       make([]string, len(d.Mailboxes)),
-		Flags:           make([]string, len(d.Flags)),
-		Keep:            d.Keep,
-		ImplicitKeep:    d.ImplicitKeep,
-		FlagAliases:     make(map[string]string, len(d.FlagAliases)),
-		MatchVariables:  make([]string, len(d.MatchVariables)),
-		Variables:       make(map[string]string, len(d.Variables)),
-		testName:        d.testName,
-		testFailMessage: d.testFailMessage,
-		testFailAt:      d.testFailAt,
-		testScript:      d.testScript,
-		testMaxNesting:  d.testMaxNesting,
+		Policy:           d.Policy,
+		Envelope:         d.Envelope,
+		Msg:              d.Msg,
+		Script:           d.Script,
+		Namespace:        d.Namespace,
+		RedirectAddr:     make([]string, len(d.RedirectAddr)),
+		Mailboxes:        make([]string, len(d.Mailboxes)),
+		Flags:            make([]string, len(d.Flags)),
+		Keep:             d.Keep,
+		ImplicitKeep:     d.ImplicitKeep,
+		FlagAliases:      make(map[string]string, len(d.FlagAliases)),
+		MatchVariables:   make([]string, len(d.MatchVariables)),
+		Variables:        make(map[string]string, len(d.Variables)),
+		testName:         d.testName,
+		testFailMessage:  d.testFailMessage,
+		testFailAt:       d.testFailAt,
+		testScript:       d.testScript,
+		testSavedScripts: d.testSavedScripts,
+		testMaxNesting:   d.testMaxNesting,
 	}
 
 	copy(newData.RedirectAddr, d.RedirectAddr)
