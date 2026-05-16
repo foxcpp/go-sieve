@@ -2,6 +2,7 @@ package sieve
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"net/textproto"
 	"reflect"
@@ -27,28 +28,56 @@ for you over the years, but I know we can work this out.
 Wile E. Coyote   "Super Genius"   coyote@desert.example.org
 `
 
-type result struct {
-	redirect     []string
-	fileinto     []string
-	implicitKeep bool
-	keep         bool
-	flags        []string
-}
+func testExecute(t *testing.T, in string, eml string, intendedResult []interp.AppliedAction) {
+	t.Helper()
 
-func testExecute(t *testing.T, in string, eml string, intendedResult result) {
-	t.Run("case", func(t *testing.T) {
+	msgHdr, err := textproto.NewReader(bufio.NewReader(strings.NewReader(eml))).ReadMIMEHeader()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		msgHdr, err := textproto.NewReader(bufio.NewReader(strings.NewReader(eml))).ReadMIMEHeader()
+	script := bufio.NewReader(strings.NewReader(in))
+
+	loadedScript, err := Load(script, DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := interp.EnvelopeStatic{
+		From: "from@test.com",
+		To:   "to@test.com",
+	}
+	msg := interp.MessageStatic{
+		Size:   len(eml),
+		Header: msgHdr,
+	}
+	data := interp.NewRuntimeData(loadedScript, interp.DummyPolicy{},
+		env, msg)
+
+	ctx := context.Background()
+	if err := loadedScript.Execute(ctx, data); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(data.AppliedActions, intendedResult) {
+		t.Log("Wrong Execute output")
+		t.Logf("Actual:   %#v", data.AppliedActions)
+		t.Logf("Expected: %#v", intendedResult)
+		t.Fail()
+	}
+
+	parentFailed := t.Failed()
+
+	t.Run("binary reloaded", func(t *testing.T) {
+		if parentFailed {
+			t.Skip("skipping binary reloaded if regular execution fails too")
+		}
+
+		savedScript, err := loadedScript.Save()
+		restoredScript, err := RestoreSaved(bytes.NewReader(savedScript))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		script := bufio.NewReader(strings.NewReader(in))
-
-		loadedScript, err := Load(script, DefaultOptions())
-		if err != nil {
-			t.Fatal(err)
-		}
 		env := interp.EnvelopeStatic{
 			From: "from@test.com",
 			To:   "to@test.com",
@@ -57,26 +86,18 @@ func testExecute(t *testing.T, in string, eml string, intendedResult result) {
 			Size:   len(eml),
 			Header: msgHdr,
 		}
-		data := interp.NewRuntimeData(loadedScript, interp.DummyPolicy{},
+		data := interp.NewRuntimeData(restoredScript, interp.DummyPolicy{},
 			env, msg)
 
 		ctx := context.Background()
-		if err := loadedScript.Execute(ctx, data); err != nil {
+		if err := restoredScript.Execute(ctx, data); err != nil {
 			t.Fatal(err)
 		}
 
-		r := result{
-			redirect:     data.RedirectAddr,
-			fileinto:     data.Mailboxes,
-			keep:         data.Keep,
-			implicitKeep: data.ImplicitKeep,
-			flags:        data.Flags,
-		}
-
-		if !reflect.DeepEqual(r, intendedResult) {
+		if !reflect.DeepEqual(data.AppliedActions, intendedResult) {
 			t.Log("Wrong Execute output")
-			t.Log("Actual:  ", r)
-			t.Log("Expected:", intendedResult)
+			t.Logf("Actual:   %#v", data.AppliedActions)
+			t.Logf("Expected: %#v", intendedResult)
 			t.Fail()
 		}
 	})
@@ -86,36 +107,49 @@ func TestFileinto(t *testing.T) {
 	testExecute(t, `require ["fileinto"];
 	fileinto "test";
 `, eml,
-		result{
-			fileinto: []string{"test"},
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "test"},
 		})
 	testExecute(t, `require ["fileinto"];
 		fileinto "test";
 		fileinto "test2";
 	`, eml,
-		result{
-			fileinto: []string{"test", "test2"},
-		})
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "test"},
+			interp.ActionFileInto{Mailbox: "test2"},
+		},
+	)
 }
 
 func TestFlags(t *testing.T) {
-	testExecute(t, `require ["fileinto", "imap4flags"];
+	t.Run("flag2 flag3", func(t *testing.T) {
+		testExecute(t, `require ["fileinto", "imap4flags"];
 	setflag ["flag1", "flag2"];
 	addflag ["flag2", "flag3"];
 	removeflag ["flag1"];
 	fileinto "test";
 `, eml,
-		result{
-			fileinto: []string{"test"},
-			flags:    []string{"flag2", "flag3"},
-		})
-	testExecute(t, `require ["fileinto", "imap4flags"];
+			[]interp.AppliedAction{
+				interp.ActionFileInto{
+					Mailbox: "test",
+					Flags:   []string{"flag2", "flag3"},
+				},
+			},
+		)
+	})
+
+	t.Run("flag2", func(t *testing.T) {
+		testExecute(t, `require ["fileinto", "imap4flags"];
 		addflag ["flag2", "flag3"];
 		removeflag ["flag3", "flag4"];
 		fileinto "test";
 	`, eml,
-		result{
-			fileinto: []string{"test"},
-			flags:    []string{"flag2"},
-		})
+			[]interp.AppliedAction{
+				interp.ActionFileInto{
+					Mailbox: "test",
+					Flags:   []string{"flag2"},
+				},
+			},
+		)
+	})
 }
