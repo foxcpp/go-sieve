@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/foxcpp/go-sieve/lexer"
@@ -211,7 +212,7 @@ func LoadSpec(s *Script, spec *Spec, position lexer.Position, args []parser.Arg,
 		for _, t := range tests {
 			loadedTest, err := LoadTest(s, t)
 			if err != nil {
-				return err
+				return fmt.Errorf("LoadTest %s: %w", t.Id, err)
 			}
 			spec.AddTest(loadedTest)
 		}

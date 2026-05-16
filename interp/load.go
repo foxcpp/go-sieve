@@ -2,6 +2,7 @@ package interp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/foxcpp/go-sieve/lexer"
@@ -49,20 +50,18 @@ func init() {
 		// RFC 5229 (variables extension)
 		"set": loadSet,
 		// vnd.dovecot.testsuite
-		"test":             loadDovecotTest,
-		"test_set":         loadDovecotTestSet,
-		"test_fail":        loadDovecotTestFail,
-		"test_binary_load": loadDovecotBinaryLoad, // go-sieve has no intermediate binary representation
-		"test_binary_save": loadDovecotBinarySave, // go-sieve has no intermediate binary representation
-		// "test_result_execute" // apply script results (validated using test_message)
-		// "test_mailbox_create"
+		"test":                loadDovecotTest,
+		"test_set":            loadDovecotTestSet,
+		"test_fail":           loadDovecotTestFail,
+		"test_binary_load":    loadDovecotBinaryLoad,
+		"test_binary_save":    loadDovecotBinarySave,
+		"test_mailbox_create": loadDovecotMailboxCreate,
 		// "test_imap_metadata_set"
 		"test_config_reload": loadNoop, // go-sieve applies changes immediately
 		"test_config_set":    loadDovecotConfigSet,
 		"test_config_unset":  loadDovecotConfigUnset,
-		// "test_result_reset"
-		// "test_message"
-
+		"test_result_reset":  loadDovecotResultReset,
+		"test_message":       loadDovecotCmdMessage,
 	}
 	tests = map[string]func(*Script, parser.Test) (Test, error){
 		// RFC 5228
@@ -78,13 +77,15 @@ func init() {
 		"size":     loadSizeTest,
 		// RFC 5229 (variables extension)
 		"string": loadStringTest,
+		// RFC 5232 (imap4flags extension)
+		"hasflag": loadHasFlagTest,
 		// vnd.dovecot.testsuite
-		"test_script_compile": loadDovecotCompile, // compile script (to test for compile errors)
-		"test_script_run":     loadDovecotRun,     // run script (to test for run-time errors)
-		"test_error":          loadDovecotError,   // check detailed results of test_script_compile or test_script_run
-		// "test_message" // check results of test_result_execute - where messages are
-		// "test_result_action" // check results of test_result_execute - what actions are executed
-		// "test_result_reset" // clean results as observed by test_result_action
+		"test_script_compile": loadDovecotCompile,       // compile script (to test for compile errors)
+		"test_script_run":     loadDovecotRun,           // run script (to test for run-time errors)
+		"test_error":          loadDovecotError,         // check detailed results of test_script_compile or test_script_run
+		"test_message":        loadDovecotTestMessage,   // check results of test_result_execute - where messages are
+		"test_result_action":  loadDovecotResultAction,  // check results of test_result_execute - what actions are executed
+		"test_result_execute": loadDovecotResultExecute, // apply script results (validated using test_message)
 	}
 }
 
@@ -108,7 +109,7 @@ func LoadBlock(s *Script, cmds []parser.Cmd) ([]Cmd, error) {
 	for _, c := range cmds {
 		cmd, err := LoadCmd(s, c)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("LoadCmd %s: %w", c.Id, err)
 		}
 		if cmd == nil {
 			continue

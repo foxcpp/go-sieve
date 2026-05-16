@@ -23,7 +23,7 @@ type matcherTest struct {
 
 func newMatcherTest() matcherTest {
 	return matcherTest{
-		Comparator: DefaultComparator,
+		Comparator: "",
 		Match:      MatchIs,
 	}
 }
@@ -104,6 +104,14 @@ func (t *matcherTest) setKey(s *Script, k []string) error {
 		}
 	}
 
+	if t.Comparator == "" {
+		if t.Match == MatchCount {
+			t.Comparator = ComparatorASCIINumeric
+		} else {
+			t.Comparator = DefaultComparator
+		}
+	}
+
 	caseFold := false
 	octet := false
 	switch t.Comparator {
@@ -115,6 +123,7 @@ func (t *matcherTest) setKey(s *Script, k []string) error {
 		octet = true
 		caseFold = true
 	case ComparatorASCIINumeric:
+	case "":
 	default:
 		return fmt.Errorf("unsupported comparator: %v", t.Comparator)
 	}

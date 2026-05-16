@@ -273,6 +273,61 @@ func (s SizeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	return false, nil
 }
 
+type HasFlagTest struct {
+	matcherTest
+	Variables []string
+}
+
+func (h HasFlagTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+	if h.isCount() {
+		count := uint64(0)
+		if len(h.Variables) == 0 {
+			count += uint64(len(d.Flags))
+		}
+		for _, v := range h.Variables {
+			value, err := d.Var(v)
+			if err != nil {
+				return false, err
+			}
+
+			varFlags := canonicalFlags(strings.Fields(value), nil, d.FlagAliases)
+			count += uint64(len(varFlags))
+		}
+
+		return h.countMatches(d, count), nil
+	}
+
+	if len(h.Variables) == 0 {
+		for _, internalFlag := range d.Flags {
+			ok, err := h.tryMatch(d, internalFlag)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		}
+	}
+	for _, v := range h.Variables {
+		value, err := d.Var(v)
+		if err != nil {
+			return false, err
+		}
+
+		varFlags := canonicalFlags(strings.Fields(value), nil, d.FlagAliases)
+		for _, varFlag := range varFlags {
+			ok, err := h.tryMatch(d, varFlag)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func init() {
 	gob.Register(AddressTest{})
 	gob.Register(AllOfTest{})

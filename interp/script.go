@@ -85,5 +85,22 @@ func (s Script) Execute(ctx context.Context, d *RuntimeData) error {
 			return err
 		}
 	}
+
+	implicitKeep := d.ImplicitKeep
+	for _, act := range d.AppliedActions {
+		if act.cancelsImplicitKeep() {
+			implicitKeep = false
+		}
+	}
+
+	if implicitKeep {
+		if err := d.OnAction(ctx, ActionKeep{
+			Implicit: true,
+			Flags:    d.Flags,
+		}, d); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

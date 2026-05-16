@@ -25,9 +25,13 @@ type CmdDovecotTest struct {
 }
 
 func (c CmdDovecotTest) Execute(ctx context.Context, d *RuntimeData) error {
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+
 	testData := d.Copy()
-	testData.testName = c.TestName
-	testData.testFailMessage = ""
+	testData.Test.Name = c.TestName
+	testData.Test.FailMessage = ""
 
 	d.Script.opts.T.Run(c.TestName, func(t *testing.T) {
 		for _, testName := range testData.Script.opts.DisabledTests {
@@ -39,8 +43,8 @@ func (c CmdDovecotTest) Execute(ctx context.Context, d *RuntimeData) error {
 		for _, cmd := range c.Cmds {
 			if err := cmd.Execute(ctx, testData); err != nil {
 				if errors.Is(err, ErrStop) {
-					if testData.testFailMessage != "" {
-						t.Errorf("test_fail at %v called: %v", testData.testFailAt, testData.testFailMessage)
+					if testData.Test.FailMessage != "" {
+						t.Errorf("test_fail at %v called: %v", testData.Test.FailAt, testData.Test.FailMessage)
 					}
 					return
 				}
@@ -58,8 +62,12 @@ type CmdDovecotTestFail struct {
 }
 
 func (c CmdDovecotTestFail) Execute(_ context.Context, d *RuntimeData) error {
-	d.testFailMessage = expandVars(d, c.Message)
-	d.testFailAt = c.At
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+
+	d.Test.FailMessage = expandVars(d, c.Message)
+	d.Test.FailAt = c.At
 	return ErrStop
 }
 
@@ -141,19 +149,134 @@ type CmdDovecotBinarySave struct {
 }
 
 func (c CmdDovecotBinarySave) Execute(_ context.Context, d *RuntimeData) error {
-	if d.testSavedScripts == nil {
-		d.testSavedScripts = make(map[string][]byte)
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
 	}
-	if d.testScript == nil {
+	if d.Test.SavedScripts == nil {
+		d.Test.SavedScripts = make(map[string][]byte)
+	}
+	if d.Test.Script == nil {
 		return fmt.Errorf("no script loaded to save")
 	}
 
-	blob, err := d.testScript.Save()
+	blob, err := d.Test.Script.Save()
 	if err != nil {
 		return fmt.Errorf("failed to encode script: %v", err)
 	}
 
-	d.testSavedScripts[c.Name] = blob
+	d.Test.SavedScripts[c.Name] = blob
+	return nil
+}
+
+type CmdDovecotMessage struct {
+	SMTP   bool
+	Folder string
+	Index  int
+}
+
+func (c CmdDovecotMessage) Execute(_ context.Context, d *RuntimeData) error {
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Execute == nil {
+		return fmt.Errorf("no test execution environment is configured")
+	}
+
+	// Implicit test_dovecot_result_reset
+	if d.Test.OriginalMsg != nil {
+		d.Msg = d.Test.OriginalMsg
+		d.Envelope = d.Test.OriginalEnvelope
+	}
+
+	d.Test.OriginalMsg = d.Msg
+	d.Test.OriginalEnvelope = d.Envelope
+	d.Test.OriginalFlags = d.Flags
+
+	if c.SMTP {
+		msg, err := d.Test.Execute.GetSMTPMessage(c.Index)
+		if err != nil {
+			return err
+		}
+		d.Msg = msg.Message
+		d.Envelope = msg.Envelope
+		return nil
+	}
+
+	folder := c.Folder
+	if folder == "" {
+		folder = d.Test.Execute.GetDefaultMailbox()
+	}
+
+	msg, err := d.Test.Execute.GetMailboxMessage(folder, c.Index)
+	if err != nil {
+		return err
+	}
+	d.Msg = msg.Message
+	d.Envelope = msg.Envelope
+	d.Flags = msg.Flags
+
+	return nil
+}
+
+type CmdDovecotMailboxCreate struct {
+	Name string
+}
+
+func (c CmdDovecotMailboxCreate) Execute(_ context.Context, d *RuntimeData) error {
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Execute == nil {
+		return fmt.Errorf("no test execution environment is configured")
+	}
+
+	return d.Test.Execute.CreateMailbox(c.Name)
+}
+
+type TestDovecotMessage struct {
+	SMTP   bool
+	Folder string
+	Index  int
+}
+
+func (c TestDovecotMessage) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	if d.Test == nil {
+		return false, fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Execute == nil {
+		return false, fmt.Errorf("no test execution environment is configured")
+	}
+
+	if c.SMTP {
+		return d.Test.Execute.HasSMTPMessage(c.Index)
+	}
+
+	folder := c.Folder
+	if folder == "" {
+		folder = d.Test.Execute.GetDefaultMailbox()
+	}
+
+	return d.Test.Execute.HasMailboxMessage(folder, c.Index)
+}
+
+type CmdDovecotResultReset struct{}
+
+func (c CmdDovecotResultReset) Execute(_ context.Context, d *RuntimeData) error {
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Execute == nil {
+		return fmt.Errorf("no test execution environment is configured")
+	}
+
+	if d.Test.OriginalMsg == nil {
+		return nil
+	}
+
+	d.Envelope = d.Test.OriginalEnvelope
+	d.Msg = d.Test.OriginalMsg
+	d.Flags = d.Test.OriginalFlags
+
 	return nil
 }
 
@@ -162,7 +285,11 @@ type CmdDovecotBinaryLoad struct {
 }
 
 func (c CmdDovecotBinaryLoad) Execute(_ context.Context, d *RuntimeData) error {
-	blob := d.testSavedScripts[c.Name]
+	if d.Test == nil {
+		return fmt.Errorf("test runtime is not configured")
+	}
+
+	blob := d.Test.SavedScripts[c.Name]
 	if blob == nil {
 		return fmt.Errorf("no such script loaded")
 	}
@@ -172,7 +299,7 @@ func (c CmdDovecotBinaryLoad) Execute(_ context.Context, d *RuntimeData) error {
 		return err
 	}
 
-	d.testScript = restored
+	d.Test.Script = restored
 	return nil
 }
 
@@ -181,6 +308,9 @@ type TestDovecotCompile struct {
 }
 
 func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	if d.Test == nil {
+		return false, fmt.Errorf("test runtime is not configured")
+	}
 	if d.Namespace == nil {
 		return false, fmt.Errorf("RuntimeData.Namespace is not set, cannot load scripts")
 	}
@@ -201,8 +331,8 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 	}
 
 	cmds, err := parser.Parse(lexer.NewStream(toks), &parser.Options{
-		MaxBlockNesting: d.testMaxNesting,
-		MaxTestNesting:  d.testMaxNesting,
+		MaxBlockNesting: d.Test.MaxNesting,
+		MaxTestNesting:  d.Test.MaxNesting,
 	})
 	if err != nil {
 		d.Script.opts.T.Log("parser.Parse failed:", err)
@@ -217,7 +347,7 @@ func (t TestDovecotCompile) Check(_ context.Context, d *RuntimeData) (bool, erro
 		return false, nil
 	}
 
-	d.testScript = script
+	d.Test.Script = script
 	return true, nil
 }
 
@@ -225,19 +355,26 @@ type TestDovecotRun struct {
 }
 
 func (t TestDovecotRun) Check(ctx context.Context, d *RuntimeData) (bool, error) {
-	if d.testScript == nil {
+	if d.Test == nil {
+		return false, fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Script == nil {
 		return false, nil
 	}
 
 	testD := d.Copy()
-	testD.Script = d.testScript
+	testD.Script = d.Test.Script
 	// Note: Loaded script has no test environment available -
 	// it is a regular Sieve script.
 
-	err := d.testScript.Execute(ctx, testD)
+	err := d.Test.Script.Execute(ctx, testD)
 	if err != nil {
 		return false, nil
 	}
+
+	// Copy actions into test case RuntimeData so test_results_execute
+	// can see it and act on it.
+	d.AppliedActions = testD.AppliedActions
 
 	return true, nil
 }
@@ -253,13 +390,81 @@ func (t TestDovecotTestError) Check(_ context.Context, _ *RuntimeData) (bool, er
 	return true, nil
 }
 
+type TestDovecotResultAction struct {
+	matcherTest
+	Index *int
+}
+
+func (t TestDovecotResultAction) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	if t.isCount() {
+		entryCount := uint64(0)
+		if t.Index != nil {
+			if *t.Index < len(d.AppliedActions) {
+				entryCount++
+			}
+		} else {
+			entryCount = uint64(len(d.AppliedActions))
+		}
+
+		return t.countMatches(d, entryCount), nil
+	}
+
+	if t.Index != nil {
+		if *t.Index >= len(d.AppliedActions) {
+			return false, nil
+		}
+		action := d.AppliedActions[*t.Index]
+
+		ok, err := t.matcherTest.tryMatch(d, action.testActionName())
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+
+	for _, action := range d.AppliedActions {
+		ok, err := t.matcherTest.tryMatch(d, action.testActionName())
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+type TestDovecotResultExecute struct{}
+
+func (t TestDovecotResultExecute) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	if d.Test == nil {
+		return false, fmt.Errorf("test runtime is not configured")
+	}
+	if d.Test.Execute == nil {
+		return false, fmt.Errorf("test execution environment is not configured")
+	}
+
+	if err := d.Test.Execute.ExecuteActions(d, d.AppliedActions); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func init() {
 	gob.Register(CmdDovecotTest{})
 	gob.Register(CmdDovecotTestFail{})
 	gob.Register(CmdDovecotConfigSet{})
 	gob.Register(CmdDovecotBinarySave{})
-	gob.Register(CmdDovecotBinarySave{})
+	gob.Register(CmdDovecotBinaryLoad{})
+	gob.Register(CmdDovecotMessage{})
+	gob.Register(CmdDovecotResultReset{})
+	gob.Register(CmdDovecotMailboxCreate{})
+	gob.Register(TestDovecotMessage{})
 	gob.Register(TestDovecotCompile{})
 	gob.Register(TestDovecotRun{})
 	gob.Register(TestDovecotTestError{})
+	gob.Register(TestDovecotResultAction{})
+	gob.Register(TestDovecotResultExecute{})
 }

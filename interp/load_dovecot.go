@@ -88,6 +88,10 @@ func loadDovecotTest(s *Script, pcmd parser.Cmd) (Cmd, error) {
 }
 
 func loadDovecotCompile(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := TestDovecotCompile{}
 	err := LoadSpec(s, &Spec{
 		Pos: []SpecPosArg{
@@ -104,6 +108,10 @@ func loadDovecotCompile(s *Script, test parser.Test) (Test, error) {
 }
 
 func loadDovecotConfigSet(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := CmdDovecotConfigSet{}
 	err := LoadSpec(s, &Spec{
 		Pos: []SpecPosArg{
@@ -127,6 +135,10 @@ func loadDovecotConfigSet(s *Script, pcmd parser.Cmd) (Cmd, error) {
 }
 
 func loadDovecotConfigUnset(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := CmdDovecotConfigSet{
 		Unset: true,
 	}
@@ -152,6 +164,10 @@ func loadDovecotConfigUnset(s *Script, pcmd parser.Cmd) (Cmd, error) {
 }
 
 func loadDovecotBinarySave(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := CmdDovecotBinarySave{}
 	err := LoadSpec(s, &Spec{
 		Pos: []SpecPosArg{
@@ -168,7 +184,11 @@ func loadDovecotBinarySave(s *Script, pcmd parser.Cmd) (Cmd, error) {
 }
 
 func loadDovecotBinaryLoad(s *Script, pcmd parser.Cmd) (Cmd, error) {
-	loaded := CmdDovecotBinarySave{}
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := CmdDovecotBinaryLoad{}
 	err := LoadSpec(s, &Spec{
 		Pos: []SpecPosArg{
 			{
@@ -184,12 +204,20 @@ func loadDovecotBinaryLoad(s *Script, pcmd parser.Cmd) (Cmd, error) {
 }
 
 func loadDovecotRun(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := TestDovecotRun{}
 	err := LoadSpec(s, &Spec{}, test.Position, test.Args, test.Tests, nil)
 	return loaded, err
 }
 
 func loadDovecotError(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
 	loaded := TestDovecotTestError{matcherTest: newMatcherTest()}
 	err := LoadSpec(s, loaded.addSpecTags(&Spec{
 		Tags: map[string]SpecTag{
@@ -208,5 +236,161 @@ func loadDovecotError(s *Script, test parser.Test) (Test, error) {
 			},
 		},
 	}), test.Position, test.Args, test.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotResultAction(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := TestDovecotResultAction{matcherTest: newMatcherTest()}
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+		Tags: map[string]SpecTag{
+			"index": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchNum: func(val int) {
+					loaded.Index = &val
+				},
+			},
+		},
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Key = val
+				},
+				MinStrCount: 1,
+			},
+		},
+	}), test.Position, test.Args, test.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotResultReset(s *Script, cmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := CmdDovecotResultReset{}
+	err := LoadSpec(s, &Spec{}, cmd.Position, cmd.Args, cmd.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotMailboxCreate(s *Script, cmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := CmdDovecotMailboxCreate{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Name = val[0]
+				},
+				MinStrCount: 1,
+				MaxStrCount: 1,
+			},
+		},
+	}, cmd.Position, cmd.Args, cmd.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotCmdMessage(s *Script, cmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := CmdDovecotMessage{}
+	err := LoadSpec(s, &Spec{
+		Tags: map[string]SpecTag{
+			"index": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchNum: func(val int) {
+					loaded.Index = val
+				},
+			},
+			"folder": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchStr: func(val []string) {
+					loaded.Folder = val[0]
+				},
+			},
+			"smtp": {
+				MatchBool: func() {
+					loaded.SMTP = true
+				},
+			},
+		},
+		Pos: []SpecPosArg{
+			{
+				MatchNum: func(val int) {
+					loaded.Index = val
+				},
+			},
+		},
+	}, cmd.Position, cmd.Args, cmd.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotResultExecute(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := TestDovecotResultExecute{}
+	err := LoadSpec(s, &Spec{}, test.Position, test.Args, test.Tests, nil)
+	return loaded, err
+}
+
+func loadDovecotTestMessage(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension(DovecotTestExtension) || s.opts.T == nil {
+		return nil, fmt.Errorf("testing environment is not enabled")
+	}
+
+	loaded := TestDovecotMessage{}
+	err := LoadSpec(s, &Spec{
+		Tags: map[string]SpecTag{
+			"index": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchNum: func(val int) {
+					loaded.Index = val
+				},
+			},
+			"folder": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				NoVariables: true,
+				MatchStr: func(val []string) {
+					loaded.Folder = val[0]
+				},
+			},
+			"smtp": {
+				MatchBool: func() {
+					loaded.SMTP = true
+				},
+			},
+		},
+		Pos: []SpecPosArg{
+			{
+				MatchNum: func(val int) {
+					loaded.Index = val
+				},
+			},
+		},
+	}, test.Position, test.Args, test.Tests, nil)
 	return loaded, err
 }

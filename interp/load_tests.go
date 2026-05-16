@@ -223,3 +223,41 @@ func loadSizeTest(s *Script, test parser.Test) (Test, error) {
 	}
 	return loaded, err
 }
+
+func loadHasFlagTest(s *Script, test parser.Test) (Test, error) {
+	loaded := HasFlagTest{matcherTest: newMatcherTest()}
+	var key, arg1, arg2 []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					arg1 = val
+				},
+			},
+			{
+				MatchStr: func(val []string) {
+					arg2 = val
+				},
+				MinStrCount: 1,
+				Optional:    true,
+			},
+		},
+	}), test.Position, test.Args, test.Tests, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Non-trailing optional arguments are evil.
+	if len(arg2) == 0 {
+		key = canonicalFlags(arg1, nil, nil)
+	} else {
+		loaded.Variables = arg1
+		key = canonicalFlags(arg2, nil, nil)
+	}
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
+	}
+
+	return loaded, nil
+}

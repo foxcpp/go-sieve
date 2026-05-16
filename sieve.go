@@ -12,6 +12,11 @@ type (
 	Script      = interp.Script
 	RuntimeData = interp.RuntimeData
 
+	ActionFileInfo = interp.ActionFileInto
+	ActionRedirect = interp.ActionRedirect
+	ActionKeep     = interp.ActionKeep
+	ActionDiscard  = interp.ActionDiscard
+
 	PolicyReader = interp.PolicyReader
 	Message      = interp.Message
 	Envelope     = interp.Envelope

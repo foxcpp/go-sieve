@@ -1,7 +1,6 @@
 package interp
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/foxcpp/go-sieve/parser"
@@ -10,38 +9,50 @@ import (
 type Flags []string
 
 func canonicalFlags(src []string, remove Flags, aliases map[string]string) Flags {
+	if len(src) == 0 {
+		return nil
+	}
+
 	// This does four things
 	// * Translate space delimited lists of flags into separate flags
 	// * Handle flag aliases
 	// * Deduplicate
 	// * Sort
 	// * (optionally) remove flags
+
+	toRemoveMap := make(map[string]struct{}, len(remove))
+	for _, f := range remove {
+		if fc, ok := aliases[f]; ok {
+			toRemoveMap[fc] = struct{}{}
+		} else {
+			toRemoveMap[f] = struct{}{}
+		}
+	}
+
 	c := make(Flags, 0, len(src))
-	fm := make(map[string]struct{})
+	fm := make(map[string]struct{}, len(src))
 	for _, fl := range src {
-		for _, f := range strings.Split(fl, " ") {
+		if fl == "" {
+			continue
+		}
+		for _, f := range strings.Fields(fl) {
+			if _, ok := fm[f]; ok {
+				continue
+			}
+
 			if fc, ok := aliases[f]; ok {
-				fm[fc] = struct{}{}
-			} else {
-				fm[f] = struct{}{}
+				f = fc
 			}
+
+			if _, toRemove := toRemoveMap[f]; toRemove {
+				continue
+			}
+
+			c = append(c, f)
+			fm[f] = struct{}{}
 		}
 	}
-	if remove != nil {
-		for _, fl := range remove {
-			for _, f := range strings.Split(fl, " ") {
-				if fc, ok := aliases[f]; ok {
-					delete(fm, fc)
-				} else {
-					delete(fm, f)
-				}
-			}
-		}
-	}
-	for f := range fm {
-		c = append(c, f)
-	}
-	sort.Strings(c)
+
 	return c
 }
 
@@ -131,24 +142,55 @@ func loadDiscard(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	return cmd, err
 }
 
-func loadSetFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
-	if !s.RequiresExtension("imap4flags") {
-		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
-	}
-	cmd := CmdSetFlag{}
-	err := LoadSpec(s, &Spec{
+func loadFlagCmd(s *Script, pcmd parser.Cmd) (variable string, flags []string, err error) {
+	var arg1, arg2 []string
+	err = LoadSpec(s, &Spec{
 		Pos: []SpecPosArg{
 			{
-				MinStrCount: 1,
 				MatchStr: func(val []string) {
-					cmd.Flags = canonicalFlags(val, nil, nil)
+					arg1 = val
 				},
+			},
+			{
+				MatchStr: func(val []string) {
+					arg2 = val
+				},
+				Optional: true,
 			},
 		},
 	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
 	if err != nil {
+		return "", nil, err
+	}
+
+	if len(arg2) == 0 {
+		if len(arg1) == 0 {
+			return "", nil, parser.ErrorAt(pcmd.Position, "missing required flags")
+		}
+		flags = canonicalFlags(arg1, nil, nil)
+	} else {
+		if len(arg1) != 1 {
+			return "", nil, parser.ErrorAt(pcmd.Position, "expected only one string as a variable name")
+		}
+		variable = arg1[0]
+		flags = canonicalFlags(arg2, nil, nil)
+	}
+	return variable, flags, nil
+}
+
+func loadSetFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension("imap4flags") {
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
+	}
+
+	cmd := CmdSetFlag{}
+
+	variable, flag, err := loadFlagCmd(s, pcmd)
+	if err != nil {
 		return nil, err
 	}
+	cmd.Variable = variable
+	cmd.Flags = flag
 
 	return cmd, nil
 }
@@ -157,21 +199,15 @@ func loadAddFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("imap4flags") {
 		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
 	}
+
 	cmd := CmdAddFlag{}
-	err := LoadSpec(s, &Spec{
-		Pos: []SpecPosArg{
-			{
-				MinStrCount: 1,
-				MatchStr: func(val []string) {
-					cmd.Flags = canonicalFlags(val, nil, nil)
-				},
-			},
-		},
-	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+
+	variable, flag, err := loadFlagCmd(s, pcmd)
 	if err != nil {
 		return nil, err
 	}
-
+	cmd.Variable = variable
+	cmd.Flags = flag
 	return cmd, nil
 }
 
@@ -179,20 +215,15 @@ func loadRemoveFlag(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	if !s.RequiresExtension("imap4flags") {
 		return nil, parser.ErrorAt(pcmd.Position, "missing require 'imap4flags")
 	}
+
 	cmd := CmdRemoveFlag{}
-	err := LoadSpec(s, &Spec{
-		Pos: []SpecPosArg{
-			{
-				MinStrCount: 1,
-				MatchStr: func(val []string) {
-					cmd.Flags = canonicalFlags(val, nil, nil)
-				},
-			},
-		},
-	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+
+	variable, flag, err := loadFlagCmd(s, pcmd)
 	if err != nil {
 		return nil, err
 	}
+	cmd.Variable = variable
+	cmd.Flags = flag
 
 	return cmd, nil
 }

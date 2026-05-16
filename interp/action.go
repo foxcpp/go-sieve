@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"strings"
 )
 
 type CmdStop struct{}
@@ -17,7 +18,7 @@ type CmdFileInto struct {
 	Flags   Flags
 }
 
-func (c CmdFileInto) Execute(_ context.Context, d *RuntimeData) error {
+func (c CmdFileInto) Execute(ctx context.Context, d *RuntimeData) error {
 	mailbox := expandVars(d, c.Mailbox)
 	found := false
 	for _, m := range d.Mailboxes {
@@ -28,11 +29,22 @@ func (c CmdFileInto) Execute(_ context.Context, d *RuntimeData) error {
 	if found {
 		return nil
 	}
+
+	flags := c.Flags
+	if flags == nil {
+		flags = d.Flags
+	}
+	flags = canonicalFlags(expandVarsList(d, flags), nil, d.FlagAliases)
+
+	if err := d.OnAction(ctx, ActionFileInto{
+		Mailbox: mailbox,
+		Flags:   flags,
+	}, d); err != nil {
+		return err
+	}
+
 	d.Mailboxes = append(d.Mailboxes, mailbox)
 	d.ImplicitKeep = false
-	if c.Flags != nil {
-		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
-	}
 	return nil
 }
 
@@ -50,6 +62,13 @@ func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
 	if !ok {
 		return nil
 	}
+
+	if err := d.OnAction(ctx, ActionRedirect{
+		Address: addr,
+	}, d); err != nil {
+		return err
+	}
+
 	d.RedirectAddr = append(d.RedirectAddr, addr)
 	d.ImplicitKeep = false
 
@@ -63,61 +82,137 @@ type CmdKeep struct {
 	Flags Flags
 }
 
-func (c CmdKeep) Execute(_ context.Context, d *RuntimeData) error {
-	d.Keep = true
-	if c.Flags != nil {
-		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
+func (c CmdKeep) Execute(ctx context.Context, d *RuntimeData) error {
+	flags := c.Flags
+	if flags == nil {
+		flags = d.Flags
 	}
+	flags = canonicalFlags(expandVarsList(d, flags), nil, d.FlagAliases)
+
+	if err := d.OnAction(ctx, ActionKeep{
+		Implicit: false,
+		Flags:    flags,
+	}, d); err != nil {
+		return err
+	}
+
+	d.Keep = true
 	return nil
 }
 
 type CmdDiscard struct{}
 
-func (c CmdDiscard) Execute(_ context.Context, d *RuntimeData) error {
+func (c CmdDiscard) Execute(ctx context.Context, d *RuntimeData) error {
+	if err := d.OnAction(ctx, ActionDiscard{}, d); err != nil {
+		return err
+	}
+
 	d.ImplicitKeep = false
 	d.Flags = make([]string, 0)
 	return nil
 }
 
 type CmdSetFlag struct {
-	Flags Flags
+	Variable string
+	Flags    Flags
 }
 
 func (c CmdSetFlag) Execute(_ context.Context, d *RuntimeData) error {
-	if c.Flags != nil {
-		d.Flags = canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
+	if c.Flags == nil {
+		return nil
 	}
+
+	flags := canonicalFlags(expandVarsList(d, c.Flags), nil, d.FlagAliases)
+
+	if c.Variable != "" {
+		if err := d.SetVar(c.Variable, strings.Join(flags, " ")); err != nil {
+			return err
+		}
+	} else {
+		d.Flags = flags
+	}
+
 	return nil
 }
 
 type CmdAddFlag struct {
-	Flags Flags
+	Variable string
+	Flags    Flags
 }
 
 func (c CmdAddFlag) Execute(_ context.Context, d *RuntimeData) error {
-	if c.Flags != nil {
-		flags := expandVarsList(d, c.Flags)
-
-		if d.Flags == nil {
-			d.Flags = make([]string, len(flags))
-			copy(d.Flags, flags)
-		} else {
-			// Use canonicalFlags to remove duplicates
-			d.Flags = canonicalFlags(append(d.Flags, flags...), nil, d.FlagAliases)
-		}
+	if c.Flags == nil {
+		return nil
 	}
+
+	flags := expandVarsList(d, c.Flags)
+
+	var srcFlags []string
+	if c.Variable != "" {
+		val, err := d.Var(c.Variable)
+		if err != nil {
+			return err
+		}
+		srcFlags = strings.Fields(val)
+	} else {
+		srcFlags = d.Flags
+	}
+
+	if srcFlags == nil {
+		srcFlags = make([]string, len(flags))
+		copy(srcFlags, flags)
+	} else {
+		// Use canonicalFlags to remove duplicates
+		srcFlags = canonicalFlags(append(srcFlags, flags...), nil, d.FlagAliases)
+	}
+
+	if c.Variable != "" {
+		if err := d.SetVar(c.Variable, strings.Join(srcFlags, " ")); err != nil {
+			return err
+		}
+	} else {
+		d.Flags = srcFlags
+	}
+
 	return nil
 }
 
 type CmdRemoveFlag struct {
-	Flags Flags
+	Variable string
+	Flags    Flags
 }
 
 func (c CmdRemoveFlag) Execute(_ context.Context, d *RuntimeData) error {
-	if c.Flags != nil {
-		// Use canonicalFlags to remove duplicates
-		d.Flags = canonicalFlags(d.Flags, expandVarsList(d, c.Flags), d.FlagAliases)
+	if c.Flags == nil {
+		return nil
 	}
+
+	flags := expandVarsList(d, c.Flags)
+
+	var srcFlags []string
+	if c.Variable != "" {
+		val, err := d.Var(c.Variable)
+		if err != nil {
+			return err
+		}
+		srcFlags = strings.Fields(val)
+	} else {
+		srcFlags = d.Flags
+	}
+
+	if srcFlags != nil {
+		// Use canonicalFlags to remove duplicates
+		srcFlags = canonicalFlags(srcFlags, flags, d.FlagAliases)
+	}
+
+	if c.Variable != "" {
+		if err := d.SetVar(c.Variable, strings.Join(srcFlags, " ")); err != nil {
+			return err
+		}
+	} else {
+		d.Flags = srcFlags
+	}
+
 	return nil
 }
 

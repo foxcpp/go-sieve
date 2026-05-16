@@ -40,6 +40,42 @@ type Message interface {
 	MessageSize() int
 }
 
+type ExecuteTestMessage struct {
+	Envelope Envelope
+	Message  Message
+	Flags    []string
+}
+
+type ExecuteTestEnvironment interface {
+	CreateMailbox(name string) error
+	// GetDefaultMailbox returns the mailbox name used by keep action.
+	GetDefaultMailbox() string
+	ExecuteActions(d *RuntimeData, actions []AppliedAction) error
+	// GetSMTPMessage returns the message that was enqueued for delivery using redirect or other
+	// similar command.
+	GetSMTPMessage(index int) (*ExecuteTestMessage, error)
+	HasSMTPMessage(index int) (bool, error)
+	// GetMailboxMessage returns the message that was saved using either fileinfo or keep command.
+	GetMailboxMessage(mailboxName string, index int) (*ExecuteTestMessage, error)
+	HasMailboxMessage(mailboxName string, index int) (bool, error)
+}
+
+type TestRuntime struct {
+	Name         string
+	FailMessage  string
+	FailAt       lexer.Position
+	Script       *Script
+	SavedScripts map[string][]byte
+	MaxNesting   int
+	Execute      ExecuteTestEnvironment
+
+	// Msg, Envelope from RuntimeData saved here when test_message
+	// is used.
+	OriginalEnvelope Envelope
+	OriginalMsg      Message
+	OriginalFlags    Flags
+}
+
 type RuntimeData struct {
 	Policy   PolicyReader
 	Envelope Envelope
@@ -50,52 +86,54 @@ type RuntimeData struct {
 
 	ifResult bool
 
-	RedirectAddr []string
-	Mailboxes    []string
-	Flags        []string
-	Keep         bool
-	ImplicitKeep bool
+	// OnAction is called each time a Sieve script requests some action. If an error is
+	// returned - script execution is aborted. Default handler (set by NewRuntimeData)
+	// appends applied action to AppliedActions. If OnAction is replaced, it must
+	// still append all actions to AppliedActions as it is used for some internal checks.
+	OnAction       func(ctx context.Context, action AppliedAction, d *RuntimeData) error
+	AppliedActions []AppliedAction
+
+	RedirectAddr []string // Deprecated: Use AppliedActions instead.
+	Mailboxes    []string // Deprecated: Use AppliedActions instead.
+	Flags        []string // Default list of flags applied for actions.
+	Keep         bool     // Deprecated: Use AppliedActions instead.
+	ImplicitKeep bool     // Deprecated: Use AppliedActions instead.
 
 	FlagAliases map[string]string
 
 	MatchVariables []string
 	Variables      map[string]string
 
-	// vnd.dovecot.testsuit state
-	testName         string
-	testFailMessage  string // if set - test failed.
-	testFailAt       lexer.Position
-	testScript       *Script           // script loaded using test_script_compile
-	testSavedScripts map[string][]byte // test_binary_save/test_binary_load
-	testMaxNesting   int               // max nesting for scripts loaded using test_script_compile
+	// vnd.dovecot.testsuite state, not intended for production use
+	Test *TestRuntime
 }
 
 func (d *RuntimeData) Copy() *RuntimeData {
 	newData := &RuntimeData{
-		Policy:           d.Policy,
-		Envelope:         d.Envelope,
-		Msg:              d.Msg,
-		Script:           d.Script,
-		Namespace:        d.Namespace,
-		RedirectAddr:     make([]string, len(d.RedirectAddr)),
-		Mailboxes:        make([]string, len(d.Mailboxes)),
-		Flags:            make([]string, len(d.Flags)),
-		Keep:             d.Keep,
-		ImplicitKeep:     d.ImplicitKeep,
-		FlagAliases:      make(map[string]string, len(d.FlagAliases)),
-		MatchVariables:   make([]string, len(d.MatchVariables)),
-		Variables:        make(map[string]string, len(d.Variables)),
-		testName:         d.testName,
-		testFailMessage:  d.testFailMessage,
-		testFailAt:       d.testFailAt,
-		testScript:       d.testScript,
-		testSavedScripts: d.testSavedScripts,
-		testMaxNesting:   d.testMaxNesting,
+		Policy:         d.Policy,
+		Envelope:       d.Envelope,
+		Msg:            d.Msg,
+		Script:         d.Script,
+		Namespace:      d.Namespace,
+		OnAction:       d.OnAction,
+		AppliedActions: make([]AppliedAction, len(d.AppliedActions)),
+		RedirectAddr:   make([]string, len(d.RedirectAddr)),
+		Mailboxes:      make([]string, len(d.Mailboxes)),
+		Keep:           d.Keep,
+		ImplicitKeep:   d.ImplicitKeep,
+		FlagAliases:    make(map[string]string, len(d.FlagAliases)),
+		MatchVariables: make([]string, len(d.MatchVariables)),
+		Variables:      make(map[string]string, len(d.Variables)),
+		Test:           d.Test,
 	}
 
+	copy(newData.AppliedActions, d.AppliedActions)
 	copy(newData.RedirectAddr, d.RedirectAddr)
 	copy(newData.Mailboxes, d.Mailboxes)
-	copy(newData.Flags, d.Flags)
+	if d.Flags != nil {
+		d.Flags = make([]string, len(d.Flags))
+		copy(newData.Flags, d.Flags)
+	}
 	copy(newData.MatchVariables, d.MatchVariables)
 
 	for k, v := range d.FlagAliases {
@@ -181,12 +219,18 @@ func (d *RuntimeData) SetVar(name, value string) error {
 	}
 }
 
+func DefaultOnAction(ctx context.Context, action AppliedAction, d *RuntimeData) error {
+	d.AppliedActions = append(d.AppliedActions, action)
+	return nil
+}
+
 func NewRuntimeData(s *Script, p PolicyReader, e Envelope, m Message) *RuntimeData {
 	return &RuntimeData{
 		Script:       s,
 		Policy:       p,
 		Envelope:     e,
 		Msg:          m,
+		OnAction:     DefaultOnAction,
 		ImplicitKeep: true,
 		FlagAliases:  make(map[string]string),
 		Variables:    map[string]string{},

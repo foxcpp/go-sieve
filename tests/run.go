@@ -8,25 +8,53 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/emersion/go-message/textproto"
 	"github.com/foxcpp/go-sieve"
 	"github.com/foxcpp/go-sieve/interp"
 )
 
-func RunDovecotTestInline(t *testing.T, baseDir string, scriptText string) {
+func DefaultTestRuntime(d *interp.RuntimeData) {
+	d.Test = &interp.TestRuntime{}
+}
+
+func ExecuteTestRuntime(env interp.ExecuteTestEnvironment) func(d *interp.RuntimeData) {
+	if env == nil {
+		panic("environment must be provided")
+	}
+	return func(d *interp.RuntimeData) {
+		if d.Test == nil {
+			d.Test = &interp.TestRuntime{}
+		}
+		d.Test.Execute = env
+	}
+}
+
+func RunDovecotTestInline(t *testing.T, baseDir string, scriptText string, testParams ...func(d *interp.RuntimeData)) {
+	t.Helper()
+
 	opts := sieve.DefaultOptions()
 	opts.Lexer.Filename = "inline"
 	opts.Interp.T = t
 
 	script, err := sieve.Load(strings.NewReader(scriptText), opts)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("Loading test script:", err)
 	}
 
 	ctx := context.Background()
 
 	// Empty data.
 	data := sieve.NewRuntimeData(script, interp.DummyPolicy{},
-		interp.EnvelopeStatic{}, interp.MessageStatic{})
+		interp.EnvelopeStatic{}, interp.MessageStatic{
+			Size:   0,
+			Header: &textproto.Header{},
+		})
+	data.Test = &interp.TestRuntime{
+		Name: t.Name(),
+	}
+	for _, param := range testParams {
+		param(data)
+	}
 
 	if baseDir == "" {
 		wd, err := os.Getwd()
@@ -44,7 +72,9 @@ func RunDovecotTestInline(t *testing.T, baseDir string, scriptText string) {
 	}
 }
 
-func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string) {
+func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string, testParams ...func(d *interp.RuntimeData)) {
+	t.Helper()
+
 	svScript, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -57,15 +87,24 @@ func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string) {
 
 	script, err := sieve.Load(bytes.NewReader(svScript), opts)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("Loading test script:", err)
 	}
 
 	ctx := context.Background()
 
 	// Empty data.
 	data := sieve.NewRuntimeData(script, interp.DummyPolicy{},
-		interp.EnvelopeStatic{}, interp.MessageStatic{})
+		interp.EnvelopeStatic{}, interp.MessageStatic{
+			Size:   0,
+			Header: &textproto.Header{},
+		})
 	data.Namespace = os.DirFS(filepath.Dir(path))
+	data.Test = &interp.TestRuntime{
+		Name: t.Name(),
+	}
+	for _, param := range testParams {
+		param(data)
+	}
 
 	err = script.Execute(ctx, data)
 	if err != nil {
@@ -73,6 +112,7 @@ func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string) {
 	}
 }
 
-func RunDovecotTest(t *testing.T, path string) {
-	RunDovecotTestWithout(t, path, nil)
+func RunDovecotTest(t *testing.T, path string, opts ...func(d *interp.RuntimeData)) {
+	t.Helper()
+	RunDovecotTestWithout(t, path, nil, opts...)
 }
