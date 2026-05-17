@@ -143,6 +143,53 @@ redirect :copy "other@example.com";
 		})
 }
 
+// RFC 3894 §1: fileinto :copy preserves implicit keep so a subsequent
+// discard can still cancel it (unlike an explicit keep, which cannot).
+func TestCopyFileintoSubsequentDiscard(t *testing.T) {
+	testExecute(t, `require ["fileinto", "copy"];
+fileinto :copy "unfiltered";
+discard;
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "unfiltered", Copy: true},
+			interp.ActionDiscard{},
+			// No implicit keep — discard cancelled it
+		})
+}
+
+// RFC 3894 §3 example: require ["copy", "fileinto"]; fileinto :copy "incoming";
+// The implicit keep must fire after the copy fileinto.
+func TestCopyRFCExample(t *testing.T) {
+	testExecute(t, `require ["copy", "fileinto"];
+fileinto :copy "incoming";
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "incoming", Copy: true},
+			interp.ActionKeep{Implicit: true},
+		})
+}
+
+// Without :copy, fileinto still cancels implicit keep.
+func TestFileintoWithoutCopyStillCancelsKeep(t *testing.T) {
+	testExecute(t, `require ["fileinto"];
+fileinto "test";
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "test"},
+			// No implicit keep
+		})
+}
+
+// Without :copy, redirect still cancels implicit keep.
+func TestRedirectWithoutCopyStillCancelsKeep(t *testing.T) {
+	testExecute(t, `redirect "other@example.com";
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionRedirect{Address: "other@example.com"},
+			// No implicit keep
+		})
+}
+
 func TestCopyRequireEnforced(t *testing.T) {
 	// Using :copy without require ["copy"] should fail at load time
 	_, err := Load(strings.NewReader(`require ["fileinto"];
