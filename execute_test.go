@@ -121,6 +121,38 @@ func TestFileinto(t *testing.T) {
 	)
 }
 
+func TestCopyFileinto(t *testing.T) {
+	// :copy should file into mailbox AND preserve implicit keep
+	testExecute(t, `require ["fileinto", "copy"];
+fileinto :copy "test";
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionFileInto{Mailbox: "test", Copy: true},
+			interp.ActionKeep{Implicit: true},
+		})
+}
+
+func TestCopyRedirect(t *testing.T) {
+	// :copy should redirect AND preserve implicit keep
+	testExecute(t, `require ["copy"];
+redirect :copy "other@example.com";
+`, eml,
+		[]interp.AppliedAction{
+			interp.ActionRedirect{Address: "other@example.com", Copy: true},
+			interp.ActionKeep{Implicit: true},
+		})
+}
+
+func TestCopyRequireEnforced(t *testing.T) {
+	// Using :copy without require ["copy"] should fail at load time
+	_, err := Load(strings.NewReader(`require ["fileinto"];
+fileinto :copy "test";
+`), DefaultOptions())
+	if err == nil {
+		t.Fatal("expected error when using :copy without require")
+	}
+}
+
 func TestFlags(t *testing.T) {
 	t.Run("flag2 flag3", func(t *testing.T) {
 		testExecute(t, `require ["fileinto", "imap4flags"];

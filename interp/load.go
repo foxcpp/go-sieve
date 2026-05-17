@@ -22,6 +22,7 @@ var supportedRequires = map[string]struct{}{
 	"imap4flags": {},
 	"variables":  {},
 	"relational": {},
+	"copy":        {},
 }
 
 var (

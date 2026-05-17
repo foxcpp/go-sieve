@@ -21,14 +21,16 @@ func (ActionDiscard) cancelsImplicitKeep() bool { return true }
 type ActionFileInto struct {
 	Mailbox string
 	Flags   Flags
+	Copy    bool
 }
 
-func (ActionFileInto) testActionName() string    { return "fileinto" }
-func (ActionFileInto) cancelsImplicitKeep() bool { return true }
+func (ActionFileInto) testActionName() string            { return "fileinto" }
+func (a ActionFileInto) cancelsImplicitKeep() bool { return !a.Copy }
 
 type ActionRedirect struct {
 	Address string
+	Copy    bool
 }
 
-func (ActionRedirect) testActionName() string    { return "redirect" }
-func (ActionRedirect) cancelsImplicitKeep() bool { return true }
+func (ActionRedirect) testActionName() string            { return "redirect" }
+func (a ActionRedirect) cancelsImplicitKeep() bool { return !a.Copy }

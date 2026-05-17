@@ -16,6 +16,7 @@ func (c CmdStop) Execute(_ context.Context, _ *RuntimeData) error {
 type CmdFileInto struct {
 	Mailbox string
 	Flags   Flags
+	Copy    bool
 }
 
 func (c CmdFileInto) Execute(ctx context.Context, d *RuntimeData) error {
@@ -39,17 +40,21 @@ func (c CmdFileInto) Execute(ctx context.Context, d *RuntimeData) error {
 	if err := d.OnAction(ctx, ActionFileInto{
 		Mailbox: mailbox,
 		Flags:   flags,
+		Copy:    c.Copy,
 	}, d); err != nil {
 		return err
 	}
 
 	d.Mailboxes = append(d.Mailboxes, mailbox)
-	d.ImplicitKeep = false
+	if !c.Copy {
+		d.ImplicitKeep = false
+	}
 	return nil
 }
 
 type CmdRedirect struct {
 	Addr string
+	Copy bool
 }
 
 func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
@@ -65,12 +70,15 @@ func (c CmdRedirect) Execute(ctx context.Context, d *RuntimeData) error {
 
 	if err := d.OnAction(ctx, ActionRedirect{
 		Address: addr,
+		Copy:    c.Copy,
 	}, d); err != nil {
 		return err
 	}
 
 	d.RedirectAddr = append(d.RedirectAddr, addr)
-	d.ImplicitKeep = false
+	if !c.Copy {
+		d.ImplicitKeep = false
+	}
 
 	if len(d.RedirectAddr) > d.Script.opts.MaxRedirects {
 		return fmt.Errorf("too many actions")
