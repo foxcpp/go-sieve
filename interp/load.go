@@ -19,12 +19,13 @@ var supportedRequires = map[string]struct{}{
 	"comparator-i;ascii-numeric":   {},
 	"comparator-i;unicode-casemap": {},
 
-	"imap4flags": {},
-	"variables":  {},
-	"relational": {},
-	"copy":        {},
-	"reject":      {},
-	"ereject":     {},
+	"imap4flags":   {},
+	"variables":    {},
+	"relational":   {},
+	"copy":         {},
+	"reject":       {},
+	"ereject":      {},
+	"subaddress":   {},
 }
 
 var (

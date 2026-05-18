@@ -20,6 +20,11 @@ type Options struct {
 	MaxVariableNameLen int
 	MaxVariableLen     int
 
+	// SubAddressSep is the set of separator characters for subaddress parsing
+	// (RFC 5233). Each character in the string is treated as a separator.
+	// Defaults to "+" if empty.
+	SubAddressSep string
+
 	// If specified - enables vnd.dovecot.testsuite extension
 	// and will execute tests.
 	T             *testing.T

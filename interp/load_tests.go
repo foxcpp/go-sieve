@@ -12,7 +12,7 @@ func loadAddressTest(s *Script, test parser.Test) (Test, error) {
 		AddressPart: All,
 	}
 	var key []string
-	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+	spec := loaded.addSpecTags(&Spec{
 		Tags: map[string]SpecTag{
 			"all": {
 				MatchBool: func() {
@@ -44,7 +44,20 @@ func loadAddressTest(s *Script, test parser.Test) (Test, error) {
 				MinStrCount: 1,
 			},
 		},
-	}), test.Position, test.Args, test.Tests, nil)
+	})
+	if s.RequiresExtension("subaddress") {
+		spec.Tags["user"] = SpecTag{
+			MatchBool: func() {
+				loaded.AddressPart = User
+			},
+		}
+		spec.Tags["detail"] = SpecTag{
+			MatchBool: func() {
+				loaded.AddressPart = Detail
+			},
+		}
+	}
+	err := LoadSpec(s, spec, test.Position, test.Args, test.Tests, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +101,7 @@ func loadEnvelopeTest(s *Script, test parser.Test) (Test, error) {
 		AddressPart: All,
 	}
 	var key []string
-	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+	spec := loaded.addSpecTags(&Spec{
 		Tags: map[string]SpecTag{
 			"all": {
 				MatchBool: func() {
@@ -120,7 +133,20 @@ func loadEnvelopeTest(s *Script, test parser.Test) (Test, error) {
 				MinStrCount: 1,
 			},
 		},
-	}), test.Position, test.Args, test.Tests, nil)
+	})
+	if s.RequiresExtension("subaddress") {
+		spec.Tags["user"] = SpecTag{
+			MatchBool: func() {
+				loaded.AddressPart = User
+			},
+		}
+		spec.Tags["detail"] = SpecTag{
+			MatchBool: func() {
+				loaded.AddressPart = Detail
+			},
+		}
+	}
+	err := LoadSpec(s, spec, test.Position, test.Args, test.Tests, nil)
 	if err != nil {
 		return nil, err
 	}

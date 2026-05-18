@@ -12,6 +12,7 @@ type savedOptions struct {
 	MaxVariableCount   int
 	MaxVariableNameLen int
 	MaxVariableLen     int
+	SubAddressSep      string
 }
 
 type savedScript struct {
@@ -28,6 +29,7 @@ func (s Script) SaveTo(w io.Writer) error {
 			MaxVariableCount:   s.opts.MaxVariableCount,
 			MaxVariableNameLen: s.opts.MaxVariableNameLen,
 			MaxVariableLen:     s.opts.MaxVariableLen,
+			SubAddressSep:      s.opts.SubAddressSep,
 		},
 		Cmds: s.cmd,
 	}
@@ -62,6 +64,7 @@ func RestoreFrom(r io.Reader) (*Script, error) {
 			MaxVariableCount:   saved.Options.MaxVariableCount,
 			MaxVariableNameLen: saved.Options.MaxVariableNameLen,
 			MaxVariableLen:     saved.Options.MaxVariableLen,
+			SubAddressSep:      saved.Options.SubAddressSep,
 		},
 		cmd: saved.Cmds,
 	}

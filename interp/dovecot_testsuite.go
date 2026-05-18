@@ -89,6 +89,12 @@ func (c CmdDovecotConfigSet) Execute(_ context.Context, d *RuntimeData) error {
 			}
 			d.Script.opts.MaxVariableLen = val
 		}
+	case "recipient_delimiter":
+		if c.Unset {
+			d.Script.opts.SubAddressSep = "+"
+		} else {
+			d.Script.opts.SubAddressSep = c.Value
+		}
 	default:
 		return fmt.Errorf("unknown test_config_set key: %v", c.Key)
 	}

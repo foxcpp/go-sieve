@@ -35,6 +35,9 @@ const (
 	LocalPart AddressPart = "localpart"
 	Domain    AddressPart = "domain"
 	All       AddressPart = "all"
+	// RFC 5233 subaddress extension
+	User   AddressPart = "user"
+	Detail AddressPart = "detail"
 )
 
 func split(addr string) (mailbox, domain string, err error) {
@@ -158,12 +161,28 @@ func testString(comparator Comparator, match Match, rel Relational, value, key s
 	return false, nil, nil
 }
 
+// splitSubAddress splits a local-part into user and detail using the
+// configured separator. The separator is a set of characters; the first
+// occurrence of any character in the set within the local-part forms the
+// boundary. Returns (user, detail, hasDetail).
+func splitSubAddress(localPart, sep string) (user, detail string, hasDetail bool) {
+	if sep == "" {
+		sep = "+"
+	}
+	idx := strings.IndexAny(localPart, sep)
+	if idx == -1 {
+		return localPart, "", false
+	}
+	return localPart[:idx], localPart[idx+1:], true
+}
+
 func testAddress(d *RuntimeData, matcher matcherTest, part AddressPart, address string) (bool, error) {
 	if address == "<>" {
 		address = ""
 	}
 
 	var valueToCompare string
+	hasValue := true
 	if address != "" {
 		switch part {
 		case LocalPart:
@@ -180,7 +199,36 @@ func testAddress(d *RuntimeData, matcher matcherTest, part AddressPart, address 
 			valueToCompare = domain
 		case All:
 			valueToCompare = address
+		case User:
+			localPart, _, err := split(address)
+			if err != nil {
+				return false, nil
+			}
+			sep := d.Script.opts.SubAddressSep
+			user, _, _ := splitSubAddress(localPart, sep)
+			valueToCompare = user
+		case Detail:
+			localPart, _, err := split(address)
+			if err != nil {
+				return false, nil
+			}
+			sep := d.Script.opts.SubAddressSep
+			_, detail, hasDetail := splitSubAddress(localPart, sep)
+			if !hasDetail {
+				// RFC 5233: if no detail, ":detail" fails to match any key
+				return false, nil
+			}
+			valueToCompare = detail
 		}
+	} else {
+		// Empty address - for :detail we should still return false (no detail)
+		if part == Detail {
+			hasValue = false
+		}
+	}
+
+	if !hasValue {
+		return false, nil
 	}
 
 	ok, err := matcher.tryMatch(d, valueToCompare)

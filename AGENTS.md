@@ -23,6 +23,8 @@
 - Variable handling is centralized in `RuntimeData.Var`/`SetVar`; namespace behavior (e.g., `envelope.*`) is enforced there.
 - `require` command is compile-time only and returns `nil` command (`interp/load_control.go`), so do not expect a runtime `CmdRequire`.
 - `sieve.go` exports `ActionFileInfo` as a public alias for `interp.ActionFileInto` — the "Info" vs "Into" inconsistency is a known API wart; do not rename without considering API breakage.
+- New interpeter Options should also be added to `savedOptions`, see `Script.Save` (`interp/binary.go`).
+- List of supported extensions is provided in README and should be kept up-to-date.
 
 ## Workflows that matter
 ```bash
