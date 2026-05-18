@@ -46,6 +46,9 @@ type ExecuteTestMessage struct {
 	Flags    []string
 }
 
+// ExecuteTestEnvironment is a mock MTA interface used for integration tests. It is possible to test
+// the actual execution of actions (fileinto, redirect, keep, etc.) using this interface in a particular
+// MTA implementation.
 type ExecuteTestEnvironment interface {
 	CreateMailbox(name string) error
 	// GetDefaultMailbox returns the mailbox name used by keep action.

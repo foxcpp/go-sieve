@@ -399,7 +399,9 @@ func (t TestDovecotResultAction) Check(_ context.Context, d *RuntimeData) (bool,
 	if t.isCount() {
 		entryCount := uint64(0)
 		if t.Index != nil {
-			if *t.Index < len(d.AppliedActions) {
+			// Pigeonhole uses 1-based indexing for :index in test_result_action.
+			idx := *t.Index - 1
+			if idx >= 0 && idx < len(d.AppliedActions) {
 				entryCount++
 			}
 		} else {
@@ -410,10 +412,12 @@ func (t TestDovecotResultAction) Check(_ context.Context, d *RuntimeData) (bool,
 	}
 
 	if t.Index != nil {
-		if *t.Index >= len(d.AppliedActions) {
+		// Pigeonhole uses 1-based indexing for :index in test_result_action.
+		idx := *t.Index - 1
+		if idx < 0 || idx >= len(d.AppliedActions) {
 			return false, nil
 		}
-		action := d.AppliedActions[*t.Index]
+		action := d.AppliedActions[idx]
 
 		ok, err := t.matcherTest.tryMatch(d, action.testActionName())
 		if err != nil {

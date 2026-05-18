@@ -163,6 +163,50 @@ func loadDiscard(s *Script, pcmd parser.Cmd) (Cmd, error) {
 	return cmd, err
 }
 
+func loadReject(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension("reject") {
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'reject'")
+	}
+	cmd := CmdReject{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				MatchStr: func(val []string) {
+					cmd.Reason = val[0]
+				},
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+	if err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}
+
+func loadEReject(s *Script, pcmd parser.Cmd) (Cmd, error) {
+	if !s.RequiresExtension("ereject") {
+		return nil, parser.ErrorAt(pcmd.Position, "missing require 'ereject'")
+	}
+	cmd := CmdEReject{}
+	err := LoadSpec(s, &Spec{
+		Pos: []SpecPosArg{
+			{
+				MinStrCount: 1,
+				MaxStrCount: 1,
+				MatchStr: func(val []string) {
+					cmd.Reason = val[0]
+				},
+			},
+		},
+	}, pcmd.Position, pcmd.Args, pcmd.Tests, pcmd.Block)
+	if err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}
+
 func loadFlagCmd(s *Script, pcmd parser.Cmd) (variable string, flags []string, err error) {
 	var arg1, arg2 []string
 	err = LoadSpec(s, &Spec{

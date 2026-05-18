@@ -32,5 +32,19 @@ type ActionRedirect struct {
 	Copy    bool
 }
 
-func (ActionRedirect) testActionName() string            { return "redirect" }
+func (ActionRedirect) testActionName() string              { return "redirect" }
 func (a ActionRedirect) cancelsImplicitKeep() bool { return !a.Copy }
+
+type ActionReject struct {
+	Reason string
+}
+
+func (ActionReject) testActionName() string    { return "reject" }
+func (ActionReject) cancelsImplicitKeep() bool { return true }
+
+type ActionEReject struct {
+	Reason string
+}
+
+func (ActionEReject) testActionName() string    { return "ereject" }
+func (ActionEReject) cancelsImplicitKeep() bool { return true }

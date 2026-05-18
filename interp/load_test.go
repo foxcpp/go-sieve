@@ -67,6 +67,7 @@ if envelope :is "from" "test@example.org" {
 					Comparator: ComparatorASCIICaseMap,
 					Match:      MatchIs,
 					Key:        []string{"test@example.org"},
+					matchCnt:   1,
 				},
 				AddressPart: All,
 				Field:       []string{"from"},
@@ -92,10 +93,10 @@ removeflag "flag2";
 			Flags: Flags{"flag1", "flag2"},
 		},
 		CmdSetFlag{
-			Flags: Flags{"flag1", "flag2"},
+			Flags: Flags{"flag2", "flag1"},
 		},
 		CmdAddFlag{
-			Flags: Flags{"flag1", "flag2"},
+			Flags: Flags{"flag2", "flag1"},
 		},
 		CmdRemoveFlag{
 			Flags: Flags{"flag2"},

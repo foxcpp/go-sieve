@@ -1,8 +1,12 @@
 go-sieve
 ====================
 
-Sieve email filtering language ([RFC 5228])
-implementation in Go.
+Sieve email filtering language ([RFC 5228]) interpreter implementation in Go.
+
+## Features
+
+* Binary representation for faster load/execute cycles (`Script.Save`, `sieve.RestoreSaved`).
+* Integration tests harness for MTA integration testing (see `tests/execute.go`).
 
 ## Supported extensions
 
@@ -12,6 +16,8 @@ implementation in Go.
 - imap4flags ([RFC 5232])
 - variables ([RFC 5229])
 - relational ([RFC 5231])
+- copy ([RFC 3894])
+- reject/ereject ([RFC 5429])
 
 ## Example
 
@@ -27,4 +33,5 @@ See ./cmd/sieve-run.
 [RFC 5229]: https://datatracker.ietf.org/doc/html/rfc5229
 [RFC 5232]: https://datatracker.ietf.org/doc/html/rfc5232
 [RFC 5231]: https://datatracker.ietf.org/doc/html/rfc5231
-
+[RFC 3894]: https://datatracker.ietf.org/doc/html/rfc3894
+[RFC 5429]: https://datatracker.ietf.org/doc/html/rfc5429

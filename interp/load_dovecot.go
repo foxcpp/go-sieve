@@ -266,7 +266,15 @@ func loadDovecotResultAction(s *Script, test parser.Test) (Test, error) {
 			},
 		},
 	}), test.Position, test.Args, test.Tests, nil)
-	return loaded, err
+	if err != nil {
+		return nil, err
+	}
+
+	if err := loaded.setKey(s, loaded.Key); err != nil {
+		return nil, err
+	}
+
+	return loaded, nil
 }
 
 func loadDovecotResultReset(s *Script, cmd parser.Cmd) (Cmd, error) {

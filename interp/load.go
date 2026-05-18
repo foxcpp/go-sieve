@@ -23,6 +23,8 @@ var supportedRequires = map[string]struct{}{
 	"variables":  {},
 	"relational": {},
 	"copy":        {},
+	"reject":      {},
+	"ereject":     {},
 }
 
 var (
@@ -50,6 +52,9 @@ func init() {
 		"removeflag": loadRemoveFlag,
 		// RFC 5229 (variables extension)
 		"set": loadSet,
+		// RFC 5429 (reject/ereject extensions)
+		"reject":  loadReject,
+		"ereject": loadEReject,
 		// vnd.dovecot.testsuite
 		"test":                loadDovecotTest,
 		"test_set":            loadDovecotTestSet,

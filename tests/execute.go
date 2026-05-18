@@ -30,4 +30,10 @@ func RunExecuteTests(t *testing.T, env interp.ExecuteTestEnvironment) {
 			ExecuteTestRuntime(env),
 		)
 	})
+	t.Run("extensions/reject", func(t *testing.T) {
+		RunDovecotTest(t,
+			filepath.Join("pigeonhole", "tests", "extensions", "reject", "execute.svtest"),
+			ExecuteTestRuntime(env),
+		)
+	})
 }

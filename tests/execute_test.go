@@ -44,6 +44,10 @@ func (s *simpleExecuteRuntime) ExecuteActions(d *interp.RuntimeData, actions []i
 				Envelope: d.Envelope,
 				Message:  d.Msg,
 			})
+		case interp.ActionReject, interp.ActionEReject:
+			// Reject/ereject: no message delivery.
+			// TODO: Build MDN and add SMTP to enable SMTP reject tests.
+			continue
 		default:
 			return fmt.Errorf("unknown action type: %T", act)
 		}

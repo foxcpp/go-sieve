@@ -44,6 +44,10 @@ go run ./cmd/sieve-run -scriptPath ./cmd/sieve-run/test.sieve -eml ./cmd/sieve-r
 - Some upstream tests are intentionally disabled with documented reasons (`tests/base_test.go`); preserve these expectations unless fixing underlying parser/address behavior.
 - `interp/dovecot_testsuite.go` intentionally treats `test_error` checks as no-op pass (go-sieve stops on first error; Pigeonhole collects multiple). `test_imap_metadata_set` is unimplemented and will error if used in `.svtest` files.
 - `CmdDovecotTest.Execute` copies `RuntimeData` via `d.Copy()` for isolation between test blocks — commands inside `test { ... }` do not affect outer state.
+- New upstream tests should be added to `tests/` as `.svtest` files, not as Go unit tests, to preserve the Dovecot test suite as the canonical source of accepted-invalid-script cases.
+- New features should be added with both Go unit tests (for API-level validation) and `.svtest` cases (to preserve Dovecot test suite coverage).
+- Tests that expect certain MTA behavior should be added to `tests/execute.go`. `ExecuteTestEnvironment` is an interface to mock MTA environment that applies actions and provides access to results (e.g. sent messages); use it for tests that care about action semantics. For tests that only care about script acceptance/rejection, `RunDovecotTest` without extra parameters is sufficient. 
+- Tests added to `tests/execute.go` should pass with the simple `simpleExecuteRuntime` implemented in `tests/execute_test.go`. This ensures that go-sieve is able to provide enough data to the MTA to execute correct decisions.
 
 ## Known caveats to preserve
 - `README.md` lists accepted-invalid-script gaps and address parsing caveats; avoid changes that silently alter these behaviors without targeted tests.

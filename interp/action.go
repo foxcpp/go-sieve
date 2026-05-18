@@ -224,6 +224,30 @@ func (c CmdRemoveFlag) Execute(_ context.Context, d *RuntimeData) error {
 	return nil
 }
 
+type CmdReject struct {
+	Reason string
+}
+
+func (c CmdReject) Execute(ctx context.Context, d *RuntimeData) error {
+	if err := d.OnAction(ctx, ActionReject{Reason: expandVars(d, c.Reason)}, d); err != nil {
+		return err
+	}
+	d.ImplicitKeep = false
+	return nil
+}
+
+type CmdEReject struct {
+	Reason string
+}
+
+func (c CmdEReject) Execute(ctx context.Context, d *RuntimeData) error {
+	if err := d.OnAction(ctx, ActionEReject{Reason: expandVars(d, c.Reason)}, d); err != nil {
+		return err
+	}
+	d.ImplicitKeep = false
+	return nil
+}
+
 func init() {
 	gob.Register(CmdStop{})
 	gob.Register(CmdFileInto{})
@@ -233,4 +257,6 @@ func init() {
 	gob.Register(CmdSetFlag{})
 	gob.Register(CmdAddFlag{})
 	gob.Register(CmdRemoveFlag{})
+	gob.Register(CmdReject{})
+	gob.Register(CmdEReject{})
 }
