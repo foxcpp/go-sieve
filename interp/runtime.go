@@ -13,6 +13,14 @@ type PolicyReader interface {
 	RedirectAllowed(ctx context.Context, d *RuntimeData, addr string) (bool, error)
 }
 
+// SieveEnvironment provides access to named environment items for the
+// environment test (RFC 5183). Implementations return ("", false) for unknown
+// or unavailable items.
+type SieveEnvironment interface {
+	// GetEnvironment returns the value of the named item and whether it exists.
+	GetEnvironment(name string) (value string, ok bool)
+}
+
 type Envelope interface {
 	EnvelopeFrom() string
 	EnvelopeTo() string
@@ -84,6 +92,7 @@ type RuntimeData struct {
 	Envelope Envelope
 	Msg      Message
 	Script   *Script
+	SieveEnv SieveEnvironment
 	// For files accessible vis "include", "test_script_compile", etc.
 	Namespace fs.FS
 
@@ -117,6 +126,7 @@ func (d *RuntimeData) Copy() *RuntimeData {
 		Envelope:       d.Envelope,
 		Msg:            d.Msg,
 		Script:         d.Script,
+		SieveEnv:       d.SieveEnv,
 		Namespace:      d.Namespace,
 		OnAction:       d.OnAction,
 		AppliedActions: make([]AppliedAction, len(d.AppliedActions)),

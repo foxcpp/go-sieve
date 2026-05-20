@@ -287,3 +287,37 @@ func loadHasFlagTest(s *Script, test parser.Test) (Test, error) {
 
 	return loaded, nil
 }
+
+func loadEnvironmentTest(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension("environment") {
+		return nil, fmt.Errorf("missing require 'environment'")
+	}
+
+	loaded := EnvironmentTest{matcherTest: newMatcherTest()}
+	var key []string
+	err := LoadSpec(s, loaded.addSpecTags(&Spec{
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					loaded.Name = val
+				},
+				MinStrCount: 1,
+			},
+			{
+				MatchStr: func(val []string) {
+					key = val
+				},
+				MinStrCount: 1,
+			},
+		},
+	}), test.Position, test.Args, test.Tests, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
+	}
+
+	return loaded, nil
+}

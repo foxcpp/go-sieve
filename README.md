@@ -19,6 +19,7 @@ Sieve email filtering language ([RFC 5228]) interpreter implementation in Go.
 - copy ([RFC 3894])
 - reject/ereject ([RFC 5429])
 - subaddress ([RFC 5233])
+- environment ([RFC 5183])
 
 ## Example
 

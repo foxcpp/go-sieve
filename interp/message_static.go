@@ -54,3 +54,11 @@ func (m MessageStatic) HeaderGet(key string) ([]string, error) {
 func (m MessageStatic) MessageSize() int {
 	return m.Size
 }
+
+// MapSieveEnvironment is a simple SieveEnvironment implementation backed by a map.
+type MapSieveEnvironment map[string]string
+
+func (e MapSieveEnvironment) GetEnvironment(name string) (string, bool) {
+	v, ok := e[name]
+	return v, ok
+}

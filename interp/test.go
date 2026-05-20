@@ -273,8 +273,62 @@ func (s SizeTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
 	return false, nil
 }
 
-type HasFlagTest struct {
+// EnvironmentTest implements the Sieve environment test (RFC 5183).
+// It checks the value of a named environment item against a key list.
+type EnvironmentTest struct {
 	matcherTest
+	Name []string // The environment item name(s) to test
+}
+
+func (e EnvironmentTest) Check(_ context.Context, d *RuntimeData) (bool, error) {
+	entryCount := uint64(0)
+	anyKnown := false
+	for _, name := range e.Name {
+		name = strings.ToLower(expandVars(d, name))
+
+		var value string
+		if d.SieveEnv != nil {
+			v, ok := d.SieveEnv.GetEnvironment(name)
+			if !ok {
+				// RFC 5183 §4: MUST fail unconditionally for unsupported items.
+				// For :count, unsupported items contribute 0 but we only count
+				// known items; if NO names are known, return false unconditionally.
+				continue
+			}
+			anyKnown = true
+			value = v
+		} else {
+			// No environment provider: treat all items as unsupported.
+			continue
+		}
+
+		if e.isCount() {
+			if value != "" {
+				entryCount++
+			}
+			continue
+		}
+
+		ok, err := e.matcherTest.tryMatch(d, value)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+
+	if e.isCount() {
+		// If none of the named items are known, fail unconditionally per RFC 5183 §4.
+		if !anyKnown {
+			return false, nil
+		}
+		return e.countMatches(d, entryCount), nil
+	}
+	return false, nil
+}
+
+type HasFlagTest struct {	matcherTest
 	Variables []string
 }
 
@@ -333,6 +387,7 @@ func init() {
 	gob.Register(AllOfTest{})
 	gob.Register(AnyOfTest{})
 	gob.Register(EnvelopeTest{})
+	gob.Register(EnvironmentTest{})
 	gob.Register(ExistsTest{})
 	gob.Register(FalseTest{})
 	gob.Register(TrueTest{})
