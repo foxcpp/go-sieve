@@ -288,6 +288,74 @@ func loadHasFlagTest(s *Script, test parser.Test) (Test, error) {
 	return loaded, nil
 }
 
+func loadBodyTest(s *Script, test parser.Test) (Test, error) {
+	if !s.RequiresExtension("body") {
+		return nil, fmt.Errorf("missing require 'body'")
+	}
+
+	loaded := BodyTest{
+		matcherTest: newMatcherTest(),
+		Transform:   BodyTransformText, // default transform
+	}
+
+	transformCnt := 0
+	var contentTypes []string
+	var key []string
+
+	spec := loaded.addSpecTags(&Spec{
+		Tags: map[string]SpecTag{
+			"raw": {
+				MatchBool: func() {
+					loaded.Transform = BodyTransformRaw
+					transformCnt++
+				},
+			},
+			"text": {
+				MatchBool: func() {
+					loaded.Transform = BodyTransformText
+					transformCnt++
+				},
+			},
+			"content": {
+				NeedsValue:  true,
+				MinStrCount: 1,
+				MatchStr: func(val []string) {
+					loaded.Transform = BodyTransformContent
+					contentTypes = val
+					transformCnt++
+				},
+			},
+		},
+		Pos: []SpecPosArg{
+			{
+				MatchStr: func(val []string) {
+					key = val
+				},
+				MinStrCount: 1,
+			},
+		},
+	})
+
+	delete(spec.Tags, "value")
+
+	err := LoadSpec(s, spec, test.Position, test.Args, test.Tests, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if transformCnt > 1 {
+		return nil, fmt.Errorf("body: only one body transform allowed")
+	}
+
+	loaded.ContentTypes = contentTypes
+
+	if err := loaded.setKey(s, key); err != nil {
+		return nil, err
+	}
+
+	return loaded, nil
+}
+
 func loadEnvironmentTest(s *Script, test parser.Test) (Test, error) {
 	if !s.RequiresExtension("environment") {
 		return nil, fmt.Errorf("missing require 'environment'")

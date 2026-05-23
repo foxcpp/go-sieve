@@ -1,8 +1,10 @@
 package interp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"strings"
 
@@ -13,10 +15,10 @@ type PolicyReader interface {
 	RedirectAllowed(ctx context.Context, d *RuntimeData, addr string) (bool, error)
 }
 
-// SieveEnvironment provides access to named environment items for the
+// Env provides access to named environment items for the
 // environment test (RFC 5183). Implementations return ("", false) for unknown
 // or unavailable items.
-type SieveEnvironment interface {
+type Env interface {
 	// GetEnvironment returns the value of the named item and whether it exists.
 	GetEnvironment(name string) (value string, ok bool)
 }
@@ -46,6 +48,86 @@ type Message interface {
 	*/
 	HeaderGet(key string) ([]string, error)
 	MessageSize() int
+}
+
+type BodyPart interface {
+	ContentType() string
+	Open(ctx context.Context) (io.ReadCloser, error)
+}
+
+// BodyPartBytes is the minimal implementation of BodyPart
+// that uses []byte to store whole body part.
+type BodyPartBytes struct {
+	Blob             []byte
+	ContentTypeValue string
+}
+
+func (b BodyPartBytes) ContentType() string {
+	return b.ContentTypeValue
+}
+
+func (b BodyPartBytes) Open(ctx context.Context) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(b.Blob)), nil
+}
+
+type BodyPartRaw struct {
+	BodyMessage
+}
+
+func (BodyPartRaw) ContentType() string {
+	return ""
+}
+
+func (b BodyPartRaw) Open(ctx context.Context) (io.ReadCloser, error) {
+	r, err := b.BodyRaw(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, ErrNoBody
+	}
+	return io.NopCloser(r), nil
+}
+
+// BodyMessage is an optional extension of the Message interface that provides
+// access to the message body for the body extension (RFC 5173).
+//
+// Implementations should implement this interface to support body tests.
+// If the Message does not implement BodyMessage, body tests will always
+// return false (no body available).
+type BodyMessage interface {
+	// BodyRaw returns the raw, undecoded body of the message as a stream.
+	// This is used for the :raw body transform.
+	// The body starts after the first empty line following the headers.
+	// The returned reader must be closed by the caller.
+	// If there is no body (header-only message without empty line separator),
+	// it should return nil, nil.
+	BodyRaw(ctx context.Context) (io.Reader, error)
+
+	// BodyParts returns decoded MIME parts whose content-type matches any of
+	// the given patterns. This is used for the :content and :text body transforms.
+	//
+	// Each pattern may be:
+	//   - "" (empty string): matches all content types
+	//   - "type" (no slash): matches any subtype of the given type
+	//   - "type/subtype": matches exactly that content-type pair
+	//   - patterns beginning/ending with '/' or with multiple slashes: match nothing
+	// ContentTypeMatches function can be used to help determine whether each
+	// content-type of each body part matches provided patterns.
+	//
+	// For multipart/* parts: returns the prologue and epilogue as separate strings.
+	// For message/rfc822 parts: returns only the header as a single string.
+	// For other parts: returns the decoded body content as UTF-8.
+	//
+	// Returns nil slice (not an error) if no matching parts are found.
+	//
+	// If Content-Transfer-Encoding is used for a part, the returned reader is expected to
+	// be decoded accordingly (e.g. base64 or quoted-printable decoded).
+	//
+	// Since Sieve operates on UTF-8 or 7-bit ASCII strings, the returned readers
+	// should provide decoded content as UTF-8, performing necessary decoding
+	// if a non-Unicode charset is specified in Content-Type.
+	BodyParts(ctx context.Context, contentTypes []string) ([]BodyPart, error)
 }
 
 type ExecuteTestMessage struct {
@@ -92,7 +174,7 @@ type RuntimeData struct {
 	Envelope Envelope
 	Msg      Message
 	Script   *Script
-	SieveEnv SieveEnvironment
+	Env      Env
 	// For files accessible vis "include", "test_script_compile", etc.
 	Namespace fs.FS
 
@@ -126,7 +208,7 @@ func (d *RuntimeData) Copy() *RuntimeData {
 		Envelope:       d.Envelope,
 		Msg:            d.Msg,
 		Script:         d.Script,
-		SieveEnv:       d.SieveEnv,
+		Env:            d.Env,
 		Namespace:      d.Namespace,
 		OnAction:       d.OnAction,
 		AppliedActions: make([]AppliedAction, len(d.AppliedActions)),

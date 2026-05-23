@@ -20,6 +20,7 @@ Sieve email filtering language ([RFC 5228]) interpreter implementation in Go.
 - reject/ereject ([RFC 5429])
 - subaddress ([RFC 5233])
 - environment ([RFC 5183])
+- body ([RFC 5173])
 
 ## Example
 
@@ -38,3 +39,5 @@ See ./cmd/sieve-run.
 [RFC 3894]: https://datatracker.ietf.org/doc/html/rfc3894
 [RFC 5429]: https://datatracker.ietf.org/doc/html/rfc5429
 [RFC 5233]: https://datatracker.ietf.org/doc/html/rfc5233
+[RFC 5183]: https://datatracker.ietf.org/doc/html/rfc5183
+[RFC 5173]: https://datatracker.ietf.org/doc/html/rfc5173

@@ -1,7 +1,11 @@
 package interp
 
 import (
+	"bufio"
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strconv"
 )
 
@@ -115,13 +119,9 @@ func (t *matcherTest) setKey(s *Script, k []string) error {
 	caseFold := false
 	octet := false
 	switch t.Comparator {
-	case ComparatorOctet:
-		octet = true
-	case ComparatorUnicodeCaseMap:
-		caseFold = true
-	case ComparatorASCIICaseMap:
-		octet = true
-		caseFold = true
+	case ComparatorOctet, ComparatorUnicodeCaseMap, ComparatorASCIICaseMap:
+		octet = t.Comparator.IsOctet()
+		caseFold = t.Comparator.IsCaseMap()
 	case ComparatorASCIINumeric:
 	case "":
 	default:
@@ -171,6 +171,48 @@ func (t *matcherTest) countMatches(d *RuntimeData, value uint64) bool {
 	}
 
 	return false
+}
+
+func (t *matcherTest) tryMatchBodyPart(ctx context.Context, d *RuntimeData, part BodyPart, stripHTML bool) (bool, error) {
+	for i, key := range t.Key {
+		partReader, err := part.Open(ctx)
+		if err != nil {
+			if errors.Is(err, ErrNoBody) {
+				return false, nil
+			}
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				return false, nil
+			}
+			return false, fmt.Errorf("open part: %w", err)
+		}
+
+		r := io.Reader(partReader)
+		if stripHTML {
+			br, ok := r.(io.ByteReader)
+			if !ok {
+				br = bufio.NewReader(partReader)
+			}
+			r = &htmlStripper{BR: br}
+		}
+
+		var ok bool
+		if t.keyCompiled != nil && t.keyCompiled[i].IsLoaded() {
+			ok, err = t.keyCompiled[i].MatchReader(r)
+		} else {
+			key = expandVars(d, key)
+			ok, err = testReader(t.Comparator, t.Match, r, expandVars(d, key))
+		}
+		if err != nil {
+			_ = partReader.Close()
+			return false, err
+		}
+		if ok {
+			_ = partReader.Close()
+			return true, nil
+		}
+		_ = partReader.Close()
+	}
+	return false, nil
 }
 
 func (t *matcherTest) tryMatch(d *RuntimeData, source string) (bool, error) {

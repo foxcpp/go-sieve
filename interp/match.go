@@ -1,8 +1,10 @@
 package interp
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/gob"
+	"io"
 	"regexp"
 	"strings"
 
@@ -31,7 +33,7 @@ func patternToRegex(pattern string, caseFold bool) string {
 			case '?':
 				result.WriteString(`(.)`)
 			case '*':
-				result.WriteString(`(.*?)`)
+				result.WriteString(`((?s:.*?))`)
 			case '.', '+', '(', ')', '|', '[', ']', '{', '}', '^', '$':
 				result.WriteRune('\\')
 				fallthrough
@@ -121,12 +123,43 @@ func (cm *CompiledMatcher) Match(value string) (bool, []string, error) {
 	return len(matches) != 0, matches, nil
 }
 
+func (cm *CompiledMatcher) MatchReader(r io.Reader) (bool, error) {
+	if cm.binary != nil {
+		br, ok := r.(io.ByteReader)
+		if !ok {
+			br = bufio.NewReader(r)
+		}
+
+		return cm.binary.MatchReader(br), nil
+	}
+
+	rr, ok := r.(io.RuneReader)
+	if !ok {
+		rr = bufio.NewReader(r)
+	}
+
+	return cm.string.MatchReader(rr), nil
+}
+
 // compileMatcher returns a function that will check whether pre-defined pattern matches the passed
 // value. It is preferable to use compileMatcher over matchOctet, matchUnicode if
 // pattern does not change often (e.g. does not depend on any variables).
 func compileMatcher(pattern string, octet bool, caseFold bool) (CompiledMatcher, error) {
 	res := CompiledMatcher{}
 	res.Regexp = patternToRegex(pattern, caseFold)
+	res.Octet = octet
+
+	if err := res.restore(); err != nil {
+		return CompiledMatcher{}, err
+	}
+	return res, nil
+}
+
+// comppileMatcherRegex is compileMatcher that accepts regular expression as input
+// instead of Sieve patterns.
+func compileMatcherRegex(regex string, octet bool) (CompiledMatcher, error) {
+	res := CompiledMatcher{}
+	res.Regexp = regex
 	res.Octet = octet
 
 	if err := res.restore(); err != nil {

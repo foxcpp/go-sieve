@@ -7,6 +7,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/textproto"
 	"strconv"
@@ -52,6 +53,9 @@ func (c CmdDovecotTest) Execute(ctx context.Context, d *RuntimeData) error {
 			}
 		}
 	})
+
+	// Propagate match variables to outer scope (Pigeonhole test blocks share match variable state).
+	d.MatchVariables = testData.MatchVariables
 
 	return nil
 }
@@ -113,13 +117,17 @@ func (c CmdDovecotTestSet) Execute(_ context.Context, d *RuntimeData) error {
 	case "message":
 		r := textproto.NewReader(bufio.NewReader(strings.NewReader(c.VariableValue)))
 		msgHdr, err := r.ReadMIMEHeader()
-		if err != nil {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("failed to parse test message: %v", err)
+		}
+		if msgHdr == nil {
+			msgHdr = textproto.MIMEHeader{}
 		}
 
 		d.Msg = MessageStatic{
-			Size:   len(c.VariableValue),
-			Header: msgHdr,
+			Size:       len(c.VariableValue),
+			Header:     msgHdr,
+			RawMessage: []byte(c.VariableValue),
 		}
 	case "envelope.from":
 		value = strings.TrimSuffix(strings.TrimPrefix(value, "<"), ">")

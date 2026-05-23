@@ -27,6 +27,7 @@ var supportedRequires = map[string]struct{}{
 	"ereject":      {},
 	"subaddress":   {},
 	"environment":  {},
+	"body":         {},
 }
 
 var (
@@ -89,6 +90,8 @@ func init() {
 		"hasflag": loadHasFlagTest,
 		// RFC 5183 (environment extension)
 		"environment": loadEnvironmentTest,
+		// RFC 5173 (body extension)
+		"body": loadBodyTest,
 		// vnd.dovecot.testsuite
 		"test_script_compile": loadDovecotCompile,       // compile script (to test for compile errors)
 		"test_script_run":     loadDovecotRun,           // run script (to test for run-time errors)

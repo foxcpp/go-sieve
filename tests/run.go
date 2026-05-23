@@ -104,7 +104,7 @@ func RunDovecotTestWithout(t *testing.T, path string, disabledTests []string, te
 	}
 	// Provide default environment items for the environment extension (RFC 5183).
 	// These values match what Pigeonhole's testsuite expects (basic.svtest, rfc.svtest).
-	data.SieveEnv = interp.MapSieveEnvironment{
+	data.Env = interp.MapEnv{
 		"name":     "Pigeonhole Sieve",
 		"version":  "0.0",
 		"location": "MS",

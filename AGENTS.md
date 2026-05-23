@@ -24,6 +24,7 @@
 - `require` command is compile-time only and returns `nil` command (`interp/load_control.go`), so do not expect a runtime `CmdRequire`.
 - `sieve.go` exports `ActionFileInfo` as a public alias for `interp.ActionFileInto` — the "Info" vs "Into" inconsistency is a known API wart; do not rename without considering API breakage.
 - New interpeter Options should also be added to `savedOptions`, see `Script.Save` (`interp/binary.go`).
+- Message body and other potentially large byte streams should be accessed via streaming API only (`io.Reader` and similar). `io.ReadAll` is allowed only for test fixtures or when size is guaranteed to be small; production code should not read entire message bodies into memory.
 - List of supported extensions is provided in README and should be kept up-to-date.
 
 ## Workflows that matter
@@ -50,6 +51,7 @@ go run ./cmd/sieve-run -scriptPath ./cmd/sieve-run/test.sieve -eml ./cmd/sieve-r
 - New features should be added with both Go unit tests (for API-level validation) and `.svtest` cases (to preserve Dovecot test suite coverage).
 - Tests that expect certain MTA behavior should be added to `tests/execute.go`. `ExecuteTestEnvironment` is an interface to mock MTA environment that applies actions and provides access to results (e.g. sent messages); use it for tests that care about action semantics. For tests that only care about script acceptance/rejection, `RunDovecotTest` without extra parameters is sufficient. 
 - Tests added to `tests/execute.go` should pass with the simple `simpleExecuteRuntime` implemented in `tests/execute_test.go`. This ensures that go-sieve is able to provide enough data to the MTA to execute correct decisions.
+- Other than for sourcing .svtest files, Pigeonhole source code is not used for anything and is never to be modified.
 
 ## Known caveats to preserve
 - `README.md` lists accepted-invalid-script gaps and address parsing caveats; avoid changes that silently alter these behaviors without targeted tests.

@@ -1,7 +1,9 @@
 package interp
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/textproto"
 )
 
@@ -42,9 +44,15 @@ func (m EnvelopeStatic) AuthUsername() string {
 
 // MessageStatic is a simple Message interface implementation
 // that just keeps all data in memory in a Go struct.
+//
+// It also implements BodyMessage: set RawMessage to the full RFC 2822 message
+// bytes (including headers). If RawMessage is nil, body tests will return false.
 type MessageStatic struct {
 	Size   int
 	Header MessageHeader
+	// RawMessage is the complete raw message (headers + body) used by body tests.
+	// If nil, body tests always return false.
+	RawMessage []byte
 }
 
 func (m MessageStatic) HeaderGet(key string) ([]string, error) {
@@ -55,10 +63,24 @@ func (m MessageStatic) MessageSize() int {
 	return m.Size
 }
 
-// MapSieveEnvironment is a simple SieveEnvironment implementation backed by a map.
-type MapSieveEnvironment map[string]string
+func (m MessageStatic) BodyRaw(ctx context.Context) (io.Reader, error) {
+	if m.RawMessage == nil {
+		return nil, nil
+	}
+	return ParseBodyRaw(ctx, bytes.NewReader(m.RawMessage))
+}
 
-func (e MapSieveEnvironment) GetEnvironment(name string) (string, bool) {
+func (m MessageStatic) BodyParts(ctx context.Context, contentTypes []string) ([]BodyPart, error) {
+	if m.RawMessage == nil {
+		return nil, nil
+	}
+	return ParseBodyParts(ctx, bytes.NewReader(m.RawMessage), contentTypes, len(m.RawMessage))
+}
+
+// MapEnv is a simple Env implementation backed by a map.
+type MapEnv map[string]string
+
+func (e MapEnv) GetEnvironment(name string) (string, bool) {
 	v, ok := e[name]
 	return v, ok
 }

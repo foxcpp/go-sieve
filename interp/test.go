@@ -287,8 +287,8 @@ func (e EnvironmentTest) Check(_ context.Context, d *RuntimeData) (bool, error) 
 		name = strings.ToLower(expandVars(d, name))
 
 		var value string
-		if d.SieveEnv != nil {
-			v, ok := d.SieveEnv.GetEnvironment(name)
+		if d.Env != nil {
+			v, ok := d.Env.GetEnvironment(name)
 			if !ok {
 				// RFC 5183 §4: MUST fail unconditionally for unsupported items.
 				// For :count, unsupported items contribute 0 but we only count
@@ -328,7 +328,8 @@ func (e EnvironmentTest) Check(_ context.Context, d *RuntimeData) (bool, error) 
 	return false, nil
 }
 
-type HasFlagTest struct {	matcherTest
+type HasFlagTest struct {
+	matcherTest
 	Variables []string
 }
 
@@ -382,10 +383,88 @@ func (h HasFlagTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
 	return false, nil
 }
 
+// BodyTransform specifies how the body is extracted for matching (RFC 5173 §5).
+type BodyTransform string
+
+const (
+	BodyTransformRaw     BodyTransform = "raw"
+	BodyTransformText    BodyTransform = "text"
+	BodyTransformContent BodyTransform = "content"
+)
+
+// BodyTest implements the body test from RFC 5173.
+type BodyTest struct {
+	matcherTest
+
+	// Transform is the body transform: raw, text, or content.
+	Transform BodyTransform
+	// ContentTypes is the list of content-type patterns for :content transform.
+	ContentTypes []string
+}
+
+func (b BodyTest) Check(ctx context.Context, d *RuntimeData) (bool, error) {
+	bm, ok := d.Msg.(BodyMessage)
+	if !ok {
+		// No body access: return false for all body tests
+		return false, nil
+	}
+
+	var parts []BodyPart
+
+	var err error
+	switch b.Transform {
+	case BodyTransformRaw:
+		parts = append(parts, BodyPartRaw{BodyMessage: bm})
+	case BodyTransformContent:
+		parts, err = bm.BodyParts(ctx, b.ContentTypes)
+	case BodyTransformText:
+		// RFC 5173 §5.3: :text is implementation's best effort at extracting
+		// UTF-8 text. Simple implementations MAY treat it as :content "text".
+		// Sophisticated ones MAY strip markup.
+		// We use :content "text" with HTML stripping applied to all parts.
+		// Applying stripHTMLTags to plain text is a no-op, so this is safe.
+		parts, err = bm.BodyParts(ctx, []string{"text", "application/xhtml+xml"})
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if len(parts) == 0 {
+		if b.isCount() {
+			return b.countMatches(d, 0), nil
+		}
+		return false, nil
+	}
+
+	if b.isCount() {
+		return b.countMatches(d, uint64(len(parts))), nil
+	}
+
+	for _, part := range parts {
+		stripHTML := false
+		ct := strings.ToLower(part.ContentType())
+		if b.Transform == BodyTransformText && (strings.HasPrefix(ct, "text/html") ||
+			strings.HasPrefix(ct, "application/xhtml")) {
+			stripHTML = true
+		}
+
+		ok, err := b.matcherTest.tryMatchBodyPart(ctx, d, part, stripHTML)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func init() {
 	gob.Register(AddressTest{})
 	gob.Register(AllOfTest{})
 	gob.Register(AnyOfTest{})
+	gob.Register(BodyTest{})
 	gob.Register(EnvelopeTest{})
 	gob.Register(EnvironmentTest{})
 	gob.Register(ExistsTest{})

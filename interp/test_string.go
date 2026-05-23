@@ -29,6 +29,14 @@ const (
 	DefaultComparator = ComparatorASCIICaseMap
 )
 
+func (c Comparator) IsOctet() bool {
+	return c == ComparatorOctet || c == ComparatorASCIICaseMap
+}
+
+func (c Comparator) IsCaseMap() bool {
+	return c == ComparatorASCIICaseMap || c == ComparatorUnicodeCaseMap
+}
+
 type AddressPart string
 
 const (
